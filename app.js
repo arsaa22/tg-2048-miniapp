@@ -26,6 +26,34 @@ let score = 0;
 let mathScore = 0; // сумма результатов всех слияний (видимая "просчитанная математика")
 let best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
 
+function saveGame() {
+  const data = { grid, score, mathScore, mathHistory, best };
+  localStorage.setItem(`${STORAGE_KEY}_save`, JSON.stringify(data));
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY}_save`);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.grid) return false;
+
+    grid = data.grid;
+    score = Number(data.score || 0);
+    mathScore = Number(data.mathScore || 0);
+    mathHistory = Array.isArray(data.mathHistory) ? data.mathHistory : [];
+    best = Number(data.best || best);
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearSave() {
+  localStorage.removeItem(`${STORAGE_KEY}_save`);
+}
+
 // список строк типа "8 + 8 = 16"
 let mathHistory = [];
 
@@ -238,14 +266,33 @@ function doMove(dir) {
   if (score > best) { best = score; saveBest(); }
 
   render();
+  saveGame();
+
 
   if (!canMove()) {
-    setTimeout(() => alert('Игра окончена!'), 50);
+    if (!canMove()) {
+  if (tg?.showPopup) {
+    tg.showPopup({
+      title: "Игра окончена",
+      message: `Score: ${score}\nBest: ${best}\nMath: ${mathScore}`,
+      buttons: [
+        { id: "new", type: "default", text: "Новая игра" },
+        { id: "close", type: "cancel", text: "Закрыть" }
+      ]
+    }, (btnId) => {
+      if (btnId === "new") newGame();
+    });
+  } else {
+    alert("Игра окончена!");
+  }
+}
+
   }
 }
 
 // --- Init game ---
 function newGame() {
+  clearSave();
   grid = makeEmptyGrid();
   score = 0;
   mathScore = 0;
@@ -290,4 +337,13 @@ boardEl.addEventListener('touchend', (e) => {
   }
 });
 
-newGame();
+if (!loadGame()) {
+  newGame();
+} else {
+  render();
+}
+const shareBtn = document.getElementById('shareBtn');
+shareBtn?.addEventListener('click', () => {
+  const text = `Мой рекорд в 2048: ${best} 🔥 (Math: ${mathScore})`;
+  tg?.openTelegramLink?.(`https://t.me/share/url?text=${encodeURIComponent(text)}`);
+});

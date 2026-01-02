@@ -16,6 +16,7 @@ const bestEl = document.getElementById('best');
 const mathScoreEl = document.getElementById('mathScore');
 const mathListEl = document.getElementById('mathList');
 const restartBtn = document.getElementById('restartBtn');
+const shareBtn = document.getElementById('shareBtn');
 
 // --- State ---
 const SIZE = 4;
@@ -23,9 +24,13 @@ const STORAGE_KEY = 'tg2048_v1';
 
 let grid = makeEmptyGrid();
 let score = 0;
-let mathScore = 0; // сумма результатов всех слияний (видимая "просчитанная математика")
+let mathScore = 0; // сумма результатов всех слияний
 let best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
 
+// список строк типа "8 + 8 = 16"
+let mathHistory = [];
+
+// --- Storage ---
 function saveGame() {
   const data = { grid, score, mathScore, mathHistory, best };
   localStorage.setItem(`${STORAGE_KEY}_save`, JSON.stringify(data));
@@ -35,6 +40,7 @@ function loadGame() {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}_save`);
     if (!raw) return false;
+
     const data = JSON.parse(raw);
     if (!data || !data.grid) return false;
 
@@ -54,20 +60,16 @@ function clearSave() {
   localStorage.removeItem(`${STORAGE_KEY}_save`);
 }
 
-// список строк типа "8 + 8 = 16"
-let mathHistory = [];
+function saveBest() {
+  localStorage.setItem(`${STORAGE_KEY}_best`, String(best));
+}
 
 // --- Helpers ---
 function makeEmptyGrid() {
   return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
 }
 
-function saveBest() {
-  localStorage.setItem(`${STORAGE_KEY}_best`, String(best));
-}
-
 function addMathLine(a, b, c) {
-  // a и b всегда равны в 2048, но оставим универсально
   const line = `${a} + ${b} = ${c}`;
   mathHistory.unshift(line);
   mathHistory = mathHistory.slice(0, 6); // последние 6
@@ -81,14 +83,35 @@ function spawnTile() {
     }
   }
   if (!empty.length) return false;
+
   const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-  // классика: 90% = 2, 10% = 4
   grid[r][c] = Math.random() < 0.9 ? 2 : 4;
   return true;
 }
 
+function tileBg(v) {
+  if (!v) return '#111827'; // пустая клетка
+
+  const map = {
+    2: '#22c55e',
+    4: '#3b82f6',
+    8: '#f59e0b',
+    16: '#ef4444',
+    32: '#a855f7',
+    64: '#06b6d4',
+    128: '#eab308',
+    256: '#fb7185',
+    512: '#14b8a6',
+    1024: '#f97316',
+    2048: '#84cc16',
+  };
+
+  return map[v] || '#ffffff';
+}
+
 function render() {
   boardEl.innerHTML = '';
+
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       const v = grid[r][c];
@@ -96,8 +119,10 @@ function render() {
       cell.className = 'cell';
       cell.textContent = v ? String(v) : '';
       cell.style.background = tileBg(v);
-      cell.style.color = '#0b1220'; // тёмный текст на ярких плитках
-if (v <= 4) cell.style.color = '#ffffff'; // для маленьких оставим белый
+
+      // текст
+      cell.style.color = '#0b1220';
+      if (v <= 4) cell.style.color = '#ffffff';
 
       boardEl.appendChild(cell);
     }
@@ -123,40 +148,30 @@ if (v <= 4) cell.style.color = '#ffffff'; // для маленьких оста�
   }
 }
 
-function tileBg(v) {
-  if (!v) return '#111827'; // пустая клетка (тёмная)
-
-  // яркая палитра как в "блок 2048" играх
-  const map = {
-    2:    '#22c55e', // ярко-зелёный
-    4:    '#3b82f6', // ярко-синий
-    8:    '#f59e0b', // оранжевый
-    16:   '#ef4444', // красный
-    32:   '#a855f7', // фиолетовый
-    64:   '#06b6d4', // бирюзовый
-    128:  '#eab308', // жёлтый
-    256:  '#fb7185', // розовый
-    512:  '#14b8a6', // зелёно-бирюзовый
-    1024: '#f97316', // ярко-оранжевый
-    2048: '#84cc16', // лайм
-  };
-
-  // для значений больше 2048 — делаем "неон" по циклу
-  return map[v] || '#ffffff';
-}
-
 function canMove() {
   // есть пустые клетки
-  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
-    if (grid[r][c] === 0) return true;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (grid[r][c] === 0) return true;
+    }
   }
   // есть соседние равные
-  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
-    const v = grid[r][c];
-    if (r + 1 < SIZE && grid[r + 1][c] === v) return true;
-    if (c + 1 < SIZE && grid[r][c + 1] === v) return true;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const v = grid[r][c];
+      if (r + 1 < SIZE && grid[r + 1][c] === v) return true;
+      if (c + 1 < SIZE && grid[r][c + 1] === v) return true;
+    }
   }
   return false;
+}
+
+function arraysEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 // сдвиг/слияние одной линии (массив из 4 чисел) влево
@@ -168,16 +183,16 @@ function slideAndMerge(line) {
   while (i < arr.length) {
     if (i + 1 < arr.length && arr[i] === arr[i + 1]) {
       const a = arr[i];
-      const merged = a + arr[i + 1]; // математика
+      const merged = a + arr[i + 1];
+
       out.push(merged);
 
       // score: обычно добавляют merged
       score += merged;
 
-      // mathScore: считаем "просчитанную математику" (сумма результатов всех слияний)
+      // mathScore: сумма результатов всех слияний
       mathScore += merged;
 
-      // история операций
       addMathLine(a, a, merged);
 
       // haptic
@@ -189,6 +204,7 @@ function slideAndMerge(line) {
       i += 1;
     }
   }
+
   while (out.length < SIZE) out.push(0);
   return out;
 }
@@ -203,6 +219,7 @@ function moveLeft() {
   }
   return changed;
 }
+
 function moveRight() {
   let changed = false;
   for (let r = 0; r < SIZE; r++) {
@@ -213,33 +230,33 @@ function moveRight() {
   }
   return changed;
 }
+
 function moveUp() {
   let changed = false;
   for (let c = 0; c < SIZE; c++) {
     const before = [];
     for (let r = 0; r < SIZE; r++) before.push(grid[r][c]);
+
     const after = slideAndMerge(before);
-    for (let r = 0; r < SIZE; r++) grid[r][c] = after[r];
-    if (!arraysEqual(before, after)) changed = true;
-  }
-  return changed;
-}
-function moveDown() {
-  let changed = false;
-  for (let c = 0; c < SIZE; c++) {
-    const before = [];
-    for (let r = 0; r < SIZE; r++) before.push(grid[r][c]);
-    const after = slideAndMerge(before.slice().reverse()).reverse();
+
     for (let r = 0; r < SIZE; r++) grid[r][c] = after[r];
     if (!arraysEqual(before, after)) changed = true;
   }
   return changed;
 }
 
-function arraysEqual(a, b) {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
+function moveDown() {
+  let changed = false;
+  for (let c = 0; c < SIZE; c++) {
+    const before = [];
+    for (let r = 0; r < SIZE; r++) before.push(grid[r][c]);
+
+    const after = slideAndMerge(before.slice().reverse()).reverse();
+
+    for (let r = 0; r < SIZE; r++) grid[r][c] = after[r];
+    if (!arraysEqual(before, after)) changed = true;
+  }
+  return changed;
 }
 
 function doMove(dir) {
@@ -254,7 +271,6 @@ function doMove(dir) {
   if (dir === 'D') changed = moveDown();
 
   if (!changed) {
-    // вернём score обратно, если вдруг не менялось (на всякий)
     score = prevScore;
     mathScore = prevMath;
     grid = JSON.parse(snapshot);
@@ -263,7 +279,10 @@ function doMove(dir) {
 
   spawnTile();
 
-  if (score > best) { best = score; saveBest(); }
+  if (score > best) {
+    best = score;
+    saveBest();
+  }
 
   render();
   saveGame();
@@ -284,6 +303,7 @@ function doMove(dir) {
       alert("Игра окончена!");
     }
   }
+} // ✅ ВАЖНО: закрыли doMove()
 
 // --- Init game ---
 function newGame() {
@@ -298,7 +318,7 @@ function newGame() {
   saveGame();
 }
 
-restartBtn.addEventListener('click', newGame);
+restartBtn?.addEventListener('click', newGame);
 
 // Keyboard controls
 window.addEventListener('keydown', (e) => {
@@ -311,6 +331,7 @@ window.addEventListener('keydown', (e) => {
 
 // Touch/swipe controls
 let touchStartX = 0, touchStartY = 0;
+
 boardEl.addEventListener('touchstart', (e) => {
   const t = e.touches[0];
   touchStartX = t.clientX;
@@ -324,7 +345,7 @@ boardEl.addEventListener('touchend', (e) => {
 
   const ax = Math.abs(dx);
   const ay = Math.abs(dy);
-  if (Math.max(ax, ay) < 25) return; // маленькое движение — игнор
+  if (Math.max(ax, ay) < 25) return;
 
   if (ax > ay) {
     doMove(dx > 0 ? 'R' : 'L');
@@ -333,12 +354,14 @@ boardEl.addEventListener('touchend', (e) => {
   }
 });
 
+// старт / загрузка
 if (!loadGame()) {
   newGame();
 } else {
   render();
 }
-const shareBtn = document.getElementById('shareBtn');
+
+// Share
 shareBtn?.addEventListener('click', () => {
   const text = `Мой рекорд в 2048: ${best} 🔥 (Math: ${mathScore})`;
   tg?.openTelegramLink?.(`https://t.me/share/url?text=${encodeURIComponent(text)}`);

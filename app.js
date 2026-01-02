@@ -268,27 +268,22 @@ function doMove(dir) {
   render();
   saveGame();
 
-
   if (!canMove()) {
-    if (!canMove()) {
-  if (tg?.showPopup) {
-    tg.showPopup({
-      title: "Игра окончена",
-      message: `Score: ${score}\nBest: ${best}\nMath: ${mathScore}`,
-      buttons: [
-        { id: "new", type: "default", text: "Новая игра" },
-        { id: "close", type: "cancel", text: "Закрыть" }
-      ]
-    }, (btnId) => {
-      if (btnId === "new") newGame();
-    });
-  } else {
-    alert("Игра окончена!");
+    if (tg?.showPopup) {
+      tg.showPopup({
+        title: "Игра окончена",
+        message: `Score: ${score}\nBest: ${best}\nMath: ${mathScore}`,
+        buttons: [
+          { id: "new", type: "default", text: "Новая игра" },
+          { id: "close", type: "cancel", text: "Закрыть" }
+        ]
+      }, (btnId) => {
+        if (btnId === "new") newGame();
+      });
+    } else {
+      alert("Игра окончена!");
+    }
   }
-}
-
-  }
-}
 
 // --- Init game ---
 function newGame() {
@@ -300,6 +295,7 @@ function newGame() {
   spawnTile();
   spawnTile();
   render();
+  saveGame();
 }
 
 restartBtn.addEventListener('click', newGame);

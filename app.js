@@ -6,6 +6,7 @@ if (tg) {
   // подхватим фон темы Telegram (если задан)
   const bg = tg.themeParams?.bg_color;
   if (bg) document.documentElement.style.setProperty('--bg', bg);
+  tg.disableVerticalSwipes?.();
 }
 
 // --- DOM ---

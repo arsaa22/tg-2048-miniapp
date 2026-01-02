@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>2048 Merge</title>
+
+  <!-- Telegram Mini Apps API -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="title">2048 Merge</div>
+          <div class="subtitle">Соединяй одинаковые блоки</div>
+        </div>
+        <button id="restartBtn" class="btn">↻ Новая</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Score</div>
+          <div class="value" id="score">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Best</div>
+          <div class="value" id="best">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Math Score</div>
+          <div class="value" id="mathScore">0</div>
+        </div>
+      </div>
+
+      <div class="board" id="board"></div>
+
+      <div class="mathBox">
+        <div class="mathTitle">Математика (последние слияния)</div>
+        <div class="mathList" id="mathList"></div>
+      </div>
+
+      <div class="hint">
+        Управление: свайпы (телефон) / стрелки (клавиатура).<br/>
+        Цель: собрать 2048 и выше.
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

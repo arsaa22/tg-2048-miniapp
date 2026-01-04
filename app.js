@@ -21,8 +21,9 @@ const shareBtn = document.getElementById('shareBtn');
 // --- State ---
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
-const API_BEST_URL = '/tg2048-api/best';   // получить глобальный рекорд (топ-1)
-const API_SCORE_URL = '/tg2048-api/score'; // отправить свой результат в глобальный рейтинг
+const API_BASE = 'https://mgt-welding.ru/tg2048-api';
+const API_BEST_URL = `${API_BASE}/best`;
+const API_SCORE_URL = `${API_BASE}/score`;
 
 let grid = makeEmptyGrid();
 let score = 0;
@@ -394,9 +395,10 @@ async function submitScoreToServer(finalScore) {
   if (!Number.isFinite(finalScore) || finalScore < 0) return;
   if (globalBestSubmitting) return;
 
-  // initData есть только внутри Telegram
+  const originInfo = `origin: ${location.origin}`;
+
   if (!tg?.initData) {
-    tg?.showAlert?.("Нет tg.initData (игра запущена не внутри Telegram?)");
+    tg?.showAlert?.(`Нет tg.initData\n${originInfo}`);
     return;
   }
 
@@ -409,24 +411,22 @@ async function submitScoreToServer(finalScore) {
       body: JSON.stringify({ score: finalScore, initData: tg.initData })
     });
 
-    // читаем ответ (важно)
     const text = await r.text().catch(() => "");
 
     if (!r.ok) {
-      // покажем, почему не принял сервер
-      tg?.showAlert?.(`Score НЕ принят: ${r.status}\n${text.slice(0, 200)}`);
+      tg?.showAlert?.(
+        `Score НЕ принят: ${r.status}\n${originInfo}\nURL: ${API_SCORE_URL}\n${text.slice(0, 200)}`
+      );
       return;
     }
 
-    // если всё ок — можно показать подтверждение (временно)
-    // потом можно убрать, чтобы не мешало
-    tg?.showAlert?.("Score отправлен ✅");
-
+    tg?.showAlert?.(`Score отправлен ✅\n${originInfo}`);
   } catch (e) {
-    tg?.showAlert?.("Ошибка сети при отправке score");
+    tg?.showAlert?.(`Ошибка сети\n${originInfo}\nURL: ${API_SCORE_URL}`);
   } finally {
     globalBestSubmitting = false;
   }
 }
+
 
 

@@ -295,7 +295,7 @@ function doMove(dir) {
 
   if (!canMove()) {
     // ✅ отправляем финальный результат в глобальный рейтинг
-  submitScoreToServer(score).finally(() => loadGlobalBest());
+    submitScoreToServer(score).finally(() => loadGlobalBest());
 
     if (tg?.showPopup) {
       tg.showPopup({
@@ -394,21 +394,39 @@ async function submitScoreToServer(finalScore) {
   if (!Number.isFinite(finalScore) || finalScore < 0) return;
   if (globalBestSubmitting) return;
 
-  // важно: initData есть только внутри Telegram
-  if (!tg?.initData) return;
+  // initData есть только внутри Telegram
+  if (!tg?.initData) {
+    tg?.showAlert?.("Нет tg.initData (игра запущена не внутри Telegram?)");
+    return;
+  }
 
   globalBestSubmitting = true;
 
   try {
-    await fetch(API_SCORE_URL, {
+    const r = await fetch(API_SCORE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ score: finalScore, initData: tg.initData })
     });
+
+    // читаем ответ (важно)
+    const text = await r.text().catch(() => "");
+
+    if (!r.ok) {
+      // покажем, почему не принял сервер
+      tg?.showAlert?.(`Score НЕ принят: ${r.status}\n${text.slice(0, 200)}`);
+      return;
+    }
+
+    // если всё ок — можно показать подтверждение (временно)
+    // потом можно убрать, чтобы не мешало
+    tg?.showAlert?.("Score отправлен ✅");
+
   } catch (e) {
-    // молча
+    tg?.showAlert?.("Ошибка сети при отправке score");
   } finally {
     globalBestSubmitting = false;
   }
 }
+
 

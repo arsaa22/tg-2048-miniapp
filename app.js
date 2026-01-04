@@ -301,7 +301,7 @@ function doMove(dir) {
     if (tg?.showPopup) {
       tg.showPopup({
         title: "Игра окончена",
-        message: `Score: ${score}\nBest: ${best}\nGlobal Best: ${globalBest || '—'}`,
+        message: `🎯 Результат: ${score}\n🏅 Личный рекорд: ${best}\n🌍 Глобальный рекорд: ${globalBest || '—'}`,
         buttons: [
           { id: "new", type: "default", text: "Новая игра" },
           { id: "close", type: "cancel", text: "Закрыть" }

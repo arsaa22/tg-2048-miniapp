@@ -13,7 +13,7 @@ if (tg) {
 const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
-const mathScoreEl = document.getElementById('mathScore');
+const globalBestEl = document.getElementById('globalBest');
 const mathListEl = document.getElementById('mathList');
 const restartBtn = document.getElementById('restartBtn');
 const shareBtn = document.getElementById('shareBtn');
@@ -21,10 +21,14 @@ const shareBtn = document.getElementById('shareBtn');
 // --- State ---
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
+const API_BEST_URL = '/api/best';
 
 let grid = makeEmptyGrid();
 let score = 0;
-let mathScore = 0; // сумма результатов всех слияний
+let mathScore = 0;               // оставляем: это “сумма слияний” для внутренней логики/истории
+let globalBest = 0;              // глобальный рекорд (лучший счёт среди всех игроков)
+let globalBestSubmitting = false;
+
 let best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
 
 // список строк типа "8 + 8 = 16"
@@ -130,7 +134,7 @@ function render() {
 
   scoreEl.textContent = String(score);
   bestEl.textContent = String(best);
-  mathScoreEl.textContent = String(mathScore);
+  globalBestEl.textContent = globalBest ? String(globalBest) : '—';
 
   mathListEl.innerHTML = '';
   if (!mathHistory.length) {
@@ -190,7 +194,7 @@ function slideAndMerge(line) {
       // score: обычно добавляют merged
       score += merged;
 
-      // mathScore: сумма результатов всех слияний
+      // mathScore: сумма результатов всех слияний (оставляем для "математики")
       mathScore += merged;
 
       addMathLine(a, a, merged);
@@ -284,6 +288,9 @@ function doMove(dir) {
     saveBest();
   }
 
+  // ✅ отправляем глобальный рекорд сразу, когда он может обновиться
+  submitGlobalBestIfNeeded();
+
   render();
   saveGame();
 
@@ -291,7 +298,7 @@ function doMove(dir) {
     if (tg?.showPopup) {
       tg.showPopup({
         title: "Игра окончена",
-        message: `Score: ${score}\nBest: ${best}\nMath: ${mathScore}`,
+        message: `Score: ${score}\nBest: ${best}\nGlobal Best: ${globalBest || '—'}`,
         buttons: [
           { id: "new", type: "default", text: "Новая игра" },
           { id: "close", type: "cancel", text: "Закрыть" }
@@ -303,7 +310,7 @@ function doMove(dir) {
       alert("Игра окончена!");
     }
   }
-} // ✅ ВАЖНО: закрыли doMove()
+} // ✅ закрыли doMove()
 
 // --- Init game ---
 function newGame() {
@@ -361,8 +368,55 @@ if (!loadGame()) {
   render();
 }
 
+loadGlobalBest();
+
 // Share
 shareBtn?.addEventListener('click', () => {
-  const text = `Мой рекорд в 2048: ${best} 🔥 (Math: ${mathScore})`;
+  const text = `Мой рекорд в 2048: ${best} 🔥\nГлобальный рекорд: ${globalBest || '—'}`;
   tg?.openTelegramLink?.(`https://t.me/share/url?text=${encodeURIComponent(text)}`);
 });
+
+// --- Global best API ---
+async function loadGlobalBest() {
+  try {
+    const r = await fetch(API_BEST_URL, { method: 'GET' });
+    const data = await r.json();
+    globalBest = Number(data.best || 0);
+    globalBestEl.textContent = globalBest ? String(globalBest) : '—';
+  } catch (e) {
+    globalBestEl.textContent = '—';
+  }
+}
+
+async function submitGlobalBestIfNeeded() {
+  if (!Number.isFinite(score)) return;
+  if (score <= globalBest) return;
+  if (globalBestSubmitting) return;
+
+  globalBestSubmitting = true;
+
+  const user = tg?.initDataUnsafe?.user;
+  const payload = {
+    score,
+    user: user ? {
+      id: user.id,
+      username: user.username || null,
+      name: [user.first_name, user.last_name].filter(Boolean).join(' ')
+    } : null
+  };
+
+  try {
+    const r = await fetch(API_BEST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    globalBest = Number(data.best || globalBest);
+    globalBestEl.textContent = globalBest ? String(globalBest) : '—';
+  } catch (e) {
+    // молча
+  } finally {
+    globalBestSubmitting = false;
+  }
+}

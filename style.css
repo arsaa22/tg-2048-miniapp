@@ -117,12 +117,14 @@ body{
   display:grid;
   grid-template-columns:repeat(4, 1fr);
   gap: var(--gap);
+  z-index: 1;
 }
 
 .board .tile-layer{
   position:absolute;
   inset: var(--pad);
   pointer-events:none;     /* чтобы свайпы проходили */
+  z-index: 2;
 }
 
 /* === ПЛИТКА === */

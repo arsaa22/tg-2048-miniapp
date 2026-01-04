@@ -165,12 +165,15 @@ function setTileContentAndStyle(tile, showPending = false) {
   const v = (showPending && tile.pendingValue) ? tile.pendingValue : tile.value;
 
   el.textContent = String(v);
-  el.style.background = tileBg(v);
 
-  // как у тебя: темный текст, но для маленьких значений — белый
-  el.style.color = '#0b1220';
-  if (v <= 4) el.style.color = '#ffffff';
+  // ✅ чтобы работали стили .tile[data-value="..."] в CSS
+  el.dataset.value = String(v);
+
+  // ❌ убираем inline-цвета, иначе CSS не сработает
+  el.style.background = '';
+  el.style.color = '';
 }
+
 
 function setTileTransform(tile, scale = 1, noTransition = false) {
   const el = ensureTileEl(tile);

@@ -21,7 +21,8 @@ const shareBtn = document.getElementById('shareBtn');
 // --- State ---
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
-const API_BEST_URL = '/api/best';
+const API_BEST_URL = '/tg2048-api/best';   // получить глобальный рекорд (топ-1)
+const API_SCORE_URL = '/tg2048-api/score'; // отправить свой результат в глобальный рейтинг
 
 let grid = makeEmptyGrid();
 let score = 0;
@@ -288,13 +289,14 @@ function doMove(dir) {
     saveBest();
   }
 
-  // ✅ отправляем глобальный рекорд сразу, когда он может обновиться
-  submitGlobalBestIfNeeded();
 
   render();
   saveGame();
 
   if (!canMove()) {
+    // ✅ отправляем финальный результат в глобальный рейтинг
+  submitScoreToServer(score).finally(() => loadGlobalBest());
+
     if (tg?.showPopup) {
       tg.showPopup({
         title: "Игра окончена",
@@ -388,35 +390,25 @@ async function loadGlobalBest() {
   }
 }
 
-async function submitGlobalBestIfNeeded() {
-  if (!Number.isFinite(score)) return;
-  if (score <= globalBest) return;
+async function submitScoreToServer(finalScore) {
+  if (!Number.isFinite(finalScore) || finalScore < 0) return;
   if (globalBestSubmitting) return;
+
+  // важно: initData есть только внутри Telegram
+  if (!tg?.initData) return;
 
   globalBestSubmitting = true;
 
-  const user = tg?.initDataUnsafe?.user;
-  const payload = {
-    score,
-    user: user ? {
-      id: user.id,
-      username: user.username || null,
-      name: [user.first_name, user.last_name].filter(Boolean).join(' ')
-    } : null
-  };
-
   try {
-    const r = await fetch(API_BEST_URL, {
+    await fetch(API_SCORE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ score: finalScore, initData: tg.initData })
     });
-    const data = await r.json();
-    globalBest = Number(data.best || globalBest);
-    globalBestEl.textContent = globalBest ? String(globalBest) : '—';
   } catch (e) {
     // молча
   } finally {
     globalBestSubmitting = false;
   }
 }
+

@@ -3,7 +3,6 @@ const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
   tg.expand();
-  // подхватим фон темы Telegram (если задан)
   const bg = tg.themeParams?.bg_color;
   if (bg) document.documentElement.style.setProperty('--bg', bg);
   tg.disableVerticalSwipes?.();
@@ -17,33 +16,31 @@ const globalBestEl = document.getElementById('globalBest');
 const mathListEl = document.getElementById('mathList');
 const restartBtn = document.getElementById('restartBtn');
 const shareBtn = document.getElementById('shareBtn');
-const soundBtn = document.getElementById('soundBtn');   // ✅ new
-const musicBtn = document.getElementById('musicBtn');   // ✅ new
+const soundBtn = document.getElementById('soundBtn');
+const musicBtn = document.getElementById('musicBtn');
 
 // --- State ---
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
-const AUDIO_KEY = `${STORAGE_KEY}_audio`;               // ✅ new
+const AUDIO_KEY = `${STORAGE_KEY}_audio`;
 
 const API_BASE = 'https://mgt-welding.ru/tg2048-api';
 const API_BEST_URL = `${API_BASE}/best`;
 const API_SCORE_URL = `${API_BASE}/score`;
 
-const MOVE_MS = 150;               // чуть больше, чем CSS transition (130ms)
+const MOVE_MS = 150;
 let isAnimating = false;
 
 let nextTileId = 1;
-const tileEls = new Map();         // tileId -> DOM
+const tileEls = new Map();
 
-let grid = makeEmptyGrid();        // grid[r][c] = tileObject | null
+let grid = makeEmptyGrid();
 let score = 0;
 let mathScore = 0;
 let globalBest = 0;
 let globalBestSubmitting = false;
 
 let best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
-
-// список строк типа "8 + 8 = 16"
 let mathHistory = [];
 
 // --- Layers (board) ---
@@ -53,7 +50,6 @@ function setupBoardLayers() {
   cellLayerEl = boardEl.querySelector('.cell-layer');
   tileLayerEl = boardEl.querySelector('.tile-layer');
 
-  // Если HTML не обновлён — создадим слои сами
   if (!cellLayerEl || !tileLayerEl) {
     boardEl.innerHTML = `
       <div class="cell-layer"></div>
@@ -63,7 +59,6 @@ function setupBoardLayers() {
     tileLayerEl = boardEl.querySelector('.tile-layer');
   }
 
-  // Фоновые 16 клеток
   if (cellLayerEl.children.length !== SIZE * SIZE) {
     cellLayerEl.innerHTML = '';
     for (let i = 0; i < SIZE * SIZE; i++) {
@@ -77,24 +72,19 @@ setupBoardLayers();
 
 // =======================
 // AudioManager (SFX + BGM)
+// BGM через WebAudio — стабильно в Telegram WebView (Android)
 // =======================
 const AudioManager = (() => {
   const saved = JSON.parse(localStorage.getItem(AUDIO_KEY) || "{}");
 
-  let soundOn = saved.soundOn ?? true;     // эффекты
-  let musicOn = saved.musicOn ?? true;     // музыка
+  let soundOn = saved.soundOn ?? true;
+  let musicOn = saved.musicOn ?? true;
   let sfxVolume = saved.sfxVolume ?? 0.8;
   let bgmVolume = saved.bgmVolume ?? 0.35;
 
   let unlocked = false;
 
-  // BGM
-  const bgm = new Audio("audio/bgm.mp3");
-  bgm.loop = true;
-  bgm.preload = "auto";
-  bgm.volume = bgmVolume;
-
-  // Pools for SFX
+  // --- SFX pools (обычный <audio>, работает нормально) ---
   const sfxPool = {
     move: makePool("audio/move.mp3", 6),
     merge: makePool("audio/merge.mp3", 8),
@@ -129,6 +119,85 @@ const AudioManager = (() => {
     };
   }
 
+  // --- BGM via WebAudio ---
+  let audioCtx = null;
+  let bgmGain = null;
+  let bgmBuffer = null;
+  let bgmSource = null;
+  let bgmLoading = null;
+
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new Ctx();
+      bgmGain = audioCtx.createGain();
+      bgmGain.gain.value = bgmVolume;
+      bgmGain.connect(audioCtx.destination);
+    }
+  }
+
+  function resumeFromGesture() {
+    try {
+      ensureAudioCtx();
+      const p = (audioCtx.state === "suspended") ? audioCtx.resume() : Promise.resolve();
+      // На всякий: пробуем стартовать и сразу, и после resume
+      startMusic();
+      p.then(() => startMusic()).catch(() => {});
+    } catch {}
+  }
+
+  function preloadBgm() {
+    ensureAudioCtx();
+    if (bgmBuffer) return Promise.resolve(bgmBuffer);
+
+    if (!bgmLoading) {
+      bgmLoading = fetch("audio/bgm.mp3")
+        .then(r => r.arrayBuffer())
+        .then(buf => audioCtx.decodeAudioData(buf))
+        .then(decoded => (bgmBuffer = decoded))
+        .catch(err => {
+          console.warn("BGM load failed:", err);
+          bgmLoading = null;
+        });
+    }
+    return bgmLoading;
+  }
+
+  function startMusic() {
+    if (!musicOn) return;
+    ensureAudioCtx();
+    if (audioCtx.state === "suspended") return; // пока не resumed — не стартуем
+
+    // уже играет
+    if (bgmSource) return;
+
+    const startNow = () => {
+      if (!bgmBuffer || bgmSource || !musicOn) return;
+
+      bgmSource = audioCtx.createBufferSource();
+      bgmSource.buffer = bgmBuffer;
+      bgmSource.loop = true;
+      bgmSource.connect(bgmGain);
+      try { bgmSource.start(0); } catch {}
+    };
+
+    if (bgmBuffer) startNow();
+    else preloadBgm().then(startNow);
+  }
+
+  function stopMusic() {
+    if (!bgmSource) return;
+    try { bgmSource.stop(0); } catch {}
+    try { bgmSource.disconnect(); } catch {}
+    bgmSource = null;
+  }
+
+  function setBgmVol(v) {
+    bgmVolume = Math.max(0, Math.min(1, v));
+    if (bgmGain) bgmGain.gain.value = bgmVolume;
+    save();
+  }
+
   function save() {
     localStorage.setItem(AUDIO_KEY, JSON.stringify({
       soundOn, musicOn, sfxVolume, bgmVolume
@@ -140,52 +209,11 @@ const AudioManager = (() => {
     if (musicBtn) musicBtn.textContent = musicOn ? "🎵" : "🚫🎵";
   }
 
-  async function unlock() {
-    if (unlocked) return;
-    unlocked = true;
-
-    // "прогрев" аудио (важно для мобилок)
-    try {
-      bgm.volume = 0;
-      await bgm.play();
-      bgm.pause();
-      bgm.currentTime = 0;
-      bgm.volume = bgmVolume;
-    } catch {}
-
-    if (musicOn) startMusic();
-  }
-
-  function startMusic() {
-  if (!musicOn) return;
-
-  try {
-    bgm.volume = bgmVolume;
-    bgm.muted = false;
-
-    // иногда помогает “сброс”, если WebView завис
-    if (bgm.paused === false) return;
-
-    // важный момент: не трогаем currentTime если файл ещё не прогрузился
-    // но если уже был stopMusic — currentTime=0 ок
-    const p = bgm.play();
-    if (p && typeof p.catch === "function") {
-      p.catch((err) => {
-        console.warn("BGM play failed:", err?.name, err?.message);
-        tg?.showAlert?.(`Музыка не стартует: ${err?.name || 'unknown'}`);
-      });
-    }
-  } catch (e) {
-    console.warn("BGM start error:", e);
-  }
-}
-
-
-  function stopMusic() {
-    try {
-      bgm.pause();
-      bgm.currentTime = 0;
-    } catch {}
+  function unlockFromGesture() {
+    if (!unlocked) unlocked = true;
+    resumeFromGesture();  // ✅ ключ для Telegram WebView
+    preloadBgm();         // можно подгрузить заранее
+    syncButtons();
   }
 
   function playSfx(name, volOverride) {
@@ -212,22 +240,24 @@ const AudioManager = (() => {
   syncButtons();
 
   return {
-    unlock,
+    unlockFromGesture,
     startMusic,
     stopMusic,
     playSfx,
     toggleSound,
     toggleMusic,
+    setBgmVol,
     syncButtons,
+    get musicOn() { return musicOn; },
+    get soundOn() { return soundOn; },
   };
 })();
 
-// Разблокировка + старт музыки после первого взаимодействия
+// ✅ Музыка должна стартовать от любого первого жеста (тап/клик)
 window.addEventListener("pointerdown", () => {
-  AudioManager.unlock();
-  AudioManager.startMusic(); // <-- добавили
+  AudioManager.unlockFromGesture();
+  AudioManager.startMusic();
 }, { once: true });
-
 
 // --- Helpers (grid) ---
 function makeEmptyGrid() {
@@ -240,7 +270,7 @@ function gridToValues() {
 
 function valuesToGrid(values) {
   const g = makeEmptyGrid();
-  nextTileId = 1; // пересобираем id заново при загрузке
+  nextTileId = 1;
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       const v = Number(values?.[r]?.[c] || 0);
@@ -256,28 +286,7 @@ function valuesToGrid(values) {
 function addMathLine(a, b, c) {
   const line = `${a} + ${b} = ${c}`;
   mathHistory.unshift(line);
-  mathHistory = mathHistory.slice(0, 6); // последние 6
-}
-
-// --- Colors (как у тебя было) ---
-function tileBg(v) {
-  if (!v) return '#111827';
-
-  const map = {
-    2: '#22c55e',
-    4: '#3b82f6',
-    8: '#f59e0b',
-    16: '#ef4444',
-    32: '#a855f7',
-    64: '#06b6d4',
-    128: '#eab308',
-    256: '#fb7185',
-    512: '#14b8a6',
-    1024: '#f97316',
-    2048: '#84cc16',
-  };
-
-  return map[v] || '#ffffff';
+  mathHistory = mathHistory.slice(0, 6);
 }
 
 // --- Tile objects ---
@@ -608,7 +617,6 @@ function doMove(dir) {
     }
   }
 
-  // Было ли изменение?
   let changed = mergesAll.length > 0;
   if (!changed) {
     for (const t of allTiles) {
@@ -616,14 +624,12 @@ function doMove(dir) {
     }
   }
 
-  // ❗ если ход невозможен — звук "block"
   if (!changed) {
     AudioManager.playSfx("block", 0.6);
     tg?.HapticFeedback?.notificationOccurred?.("warning");
     return;
   }
 
-  // ✅ звук "move" или "merge" (один раз за ход)
   AudioManager.playSfx(mergesAll.length ? "merge" : "move", mergesAll.length ? 0.8 : 0.4);
 
   grid = newGrid;
@@ -661,7 +667,6 @@ function doMove(dir) {
     saveGame();
 
     if (!canMove()) {
-      // звук проигрыша + стоп музыки
       AudioManager.playSfx("gameover", 0.9);
       AudioManager.stopMusic();
 
@@ -712,22 +717,19 @@ function newGame() {
 
 // ✅ кнопки звука/музыки
 soundBtn?.addEventListener("click", () => {
-  AudioManager.unlock();
+  AudioManager.unlockFromGesture();
   AudioManager.toggleSound();
 });
 
 musicBtn?.addEventListener("click", () => {
-  AudioManager.unlock();       // на всякий случай
-  AudioManager.toggleMusic();  // переключили состояние
-
-  // ✅ ВАЖНО: стартуем музыку прямо здесь, в жесте клика
-  AudioManager.startMusic();
+  AudioManager.unlockFromGesture();
+  AudioManager.toggleMusic();
+  AudioManager.startMusic(); // в жесте клика
 });
 
-
-// ✅ restart с кликом и запуском музыки
+// ✅ restart
 restartBtn?.addEventListener('click', () => {
-  AudioManager.unlock();
+  AudioManager.unlockFromGesture();
   AudioManager.playSfx("click", 0.7);
   AudioManager.startMusic();
   newGame();
@@ -746,8 +748,10 @@ window.addEventListener('keydown', (e) => {
 let touchStartX = 0, touchStartY = 0;
 
 boardEl.addEventListener('touchstart', (e) => {
-  AudioManager.unlock();
+  // ✅ жест пользователя: будим AudioContext и стартуем музыку
+  AudioManager.unlockFromGesture();
   AudioManager.startMusic();
+
   const t = e.touches[0];
   touchStartX = t.clientX;
   touchStartY = t.clientY;
@@ -781,7 +785,7 @@ loadGlobalBest();
 
 // Share
 shareBtn?.addEventListener('click', () => {
-  AudioManager.unlock();
+  AudioManager.unlockFromGesture();
   AudioManager.playSfx("click", 0.7);
 
   const text = `Мой рекорд в 2048: ${best} 🔥\nГлобальный рекорд: ${globalBest || '—'}`;

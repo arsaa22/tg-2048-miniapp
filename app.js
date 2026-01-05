@@ -709,24 +709,31 @@ window.addEventListener('keydown', (e) => {
   if (k === 'ArrowDown') doMove('D');
 });
 
-// Touch/swipe controls
-let touchStartX = 0, touchStartY = 0;
+// Swipe controls (Pointer Events) — стабильно в Telegram WebView
+let swipeStartX = 0, swipeStartY = 0;
+let swipeActive = false;
 
-boardEl.addEventListener('touchstart', (e) => {
+boardEl.addEventListener('pointerdown', (e) => {
   AudioManager.unlockFromGesture();
 
-  const t = e.touches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
+  swipeActive = true;
+  swipeStartX = e.clientX;
+  swipeStartY = e.clientY;
+
+  // чтобы не терять события при быстром свайпе
+  try { boardEl.setPointerCapture(e.pointerId); } catch {}
 }, { passive: true });
 
-boardEl.addEventListener('touchend', (e) => {
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
+boardEl.addEventListener('pointerup', (e) => {
+  if (!swipeActive) return;
+  swipeActive = false;
+
+  const dx = e.clientX - swipeStartX;
+  const dy = e.clientY - swipeStartY;
 
   const ax = Math.abs(dx);
   const ay = Math.abs(dy);
+
   if (Math.max(ax, ay) < 25) return;
 
   if (ax > ay) {
@@ -734,7 +741,12 @@ boardEl.addEventListener('touchend', (e) => {
   } else {
     doMove(dy > 0 ? 'D' : 'U');
   }
+}, { passive: true });
+
+boardEl.addEventListener('pointercancel', () => {
+  swipeActive = false;
 });
+
 
 // старт / загрузка
 if (!loadGame()) {

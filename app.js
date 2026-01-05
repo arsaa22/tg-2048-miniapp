@@ -74,6 +74,7 @@ setupBoardLayers();
 // AudioManager (SFX + BGM)
 // BGM через WebAudio — стабильно в Telegram WebView (Android)
 // =======================
+
 const AudioManager = (() => {
   const saved = JSON.parse(localStorage.getItem(AUDIO_KEY) || "{}");
 
@@ -84,7 +85,7 @@ const AudioManager = (() => {
 
   let unlocked = false;
 
-  // --- SFX pools (обычный <audio>, работает нормально) ---
+  // --- SFX pools (обычный <audio>) ---
   const sfxPool = {
     move: makePool("audio/move.mp3", 6),
     merge: makePool("audio/merge.mp3", 8),
@@ -110,7 +111,7 @@ const AudioManager = (() => {
           a.pause();
           a.currentTime = 0;
           a.volume = (volOverride ?? sfxVolume);
-          a.play().catch(() => {});
+          a.play().catch(() => {}); // тихо игнорируем (без алертов)
         } catch {}
       },
       setVolume(v) {
@@ -119,7 +120,7 @@ const AudioManager = (() => {
     };
   }
 
-  // --- BGM via WebAudio ---
+  // --- BGM via WebAudio (для Telegram WebView) ---
   let audioCtx = null;
   let bgmGain = null;
   let bgmBuffer = null;
@@ -134,16 +135,6 @@ const AudioManager = (() => {
       bgmGain.gain.value = bgmVolume;
       bgmGain.connect(audioCtx.destination);
     }
-  }
-
-  function resumeFromGesture() {
-    try {
-      ensureAudioCtx();
-      const p = (audioCtx.state === "suspended") ? audioCtx.resume() : Promise.resolve();
-      // На всякий: пробуем стартовать и сразу, и после resume
-      startMusic();
-      p.then(() => startMusic()).catch(() => {});
-    } catch {}
   }
 
   function preloadBgm() {
@@ -166,10 +157,8 @@ const AudioManager = (() => {
   function startMusic() {
     if (!musicOn) return;
     ensureAudioCtx();
-    if (audioCtx.state === "suspended") return; // пока не resumed — не стартуем
-
-    // уже играет
-    if (bgmSource) return;
+    if (audioCtx.state !== "running") return; // пока не running — не стартуем
+    if (bgmSource) return; // уже играет
 
     const startNow = () => {
       if (!bgmBuffer || bgmSource || !musicOn) return;
@@ -178,6 +167,10 @@ const AudioManager = (() => {
       bgmSource.buffer = bgmBuffer;
       bgmSource.loop = true;
       bgmSource.connect(bgmGain);
+
+      // если вдруг закончится/сбросится — отпустим ссылку
+      bgmSource.onended = () => { bgmSource = null; };
+
       try { bgmSource.start(0); } catch {}
     };
 
@@ -192,12 +185,6 @@ const AudioManager = (() => {
     bgmSource = null;
   }
 
-  function setBgmVol(v) {
-    bgmVolume = Math.max(0, Math.min(1, v));
-    if (bgmGain) bgmGain.gain.value = bgmVolume;
-    save();
-  }
-
   function save() {
     localStorage.setItem(AUDIO_KEY, JSON.stringify({
       soundOn, musicOn, sfxVolume, bgmVolume
@@ -209,10 +196,22 @@ const AudioManager = (() => {
     if (musicBtn) musicBtn.textContent = musicOn ? "🎵" : "🚫🎵";
   }
 
+  // ✅ Главная функция: вызывать ТОЛЬКО из жеста (тап/свайп/клик)
   function unlockFromGesture() {
-    if (!unlocked) unlocked = true;
-    resumeFromGesture();  // ✅ ключ для Telegram WebView
-    preloadBgm();         // можно подгрузить заранее
+    ensureAudioCtx();
+    unlocked = true;
+
+    // Важно: resume() должен быть из gesture — тут мы как раз в gesture
+    const resumePromise =
+      (audioCtx.state === "suspended") ? audioCtx.resume() : Promise.resolve();
+
+    resumePromise
+      .then(() => {
+        preloadBgm();
+        if (musicOn) startMusic();
+      })
+      .catch(() => { /* без алертов */ });
+
     syncButtons();
   }
 
@@ -246,18 +245,16 @@ const AudioManager = (() => {
     playSfx,
     toggleSound,
     toggleMusic,
-    setBgmVol,
     syncButtons,
-    get musicOn() { return musicOn; },
-    get soundOn() { return soundOn; },
   };
 })();
+
 
 // ✅ Музыка должна стартовать от любого первого жеста (тап/клик)
 window.addEventListener("pointerdown", () => {
   AudioManager.unlockFromGesture();
-  AudioManager.startMusic();
 }, { once: true });
+
 
 // --- Helpers (grid) ---
 function makeEmptyGrid() {
@@ -750,7 +747,7 @@ let touchStartX = 0, touchStartY = 0;
 boardEl.addEventListener('touchstart', (e) => {
   // ✅ жест пользователя: будим AudioContext и стартуем музыку
   AudioManager.unlockFromGesture();
-  AudioManager.startMusic();
+
 
   const t = e.touches[0];
   touchStartX = t.clientX;

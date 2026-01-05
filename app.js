@@ -157,12 +157,29 @@ const AudioManager = (() => {
   }
 
   function startMusic() {
-    if (!musicOn || !unlocked) return;
-    try {
-      bgm.volume = bgmVolume;
-      bgm.play().catch(() => {});
-    } catch {}
+  if (!musicOn) return;
+
+  try {
+    bgm.volume = bgmVolume;
+    bgm.muted = false;
+
+    // иногда помогает “сброс”, если WebView завис
+    if (bgm.paused === false) return;
+
+    // важный момент: не трогаем currentTime если файл ещё не прогрузился
+    // но если уже был stopMusic — currentTime=0 ок
+    const p = bgm.play();
+    if (p && typeof p.catch === "function") {
+      p.catch((err) => {
+        console.warn("BGM play failed:", err?.name, err?.message);
+        tg?.showAlert?.(`Музыка не стартует: ${err?.name || 'unknown'}`);
+      });
+    }
+  } catch (e) {
+    console.warn("BGM start error:", e);
   }
+}
+
 
   function stopMusic() {
     try {
@@ -698,9 +715,13 @@ soundBtn?.addEventListener("click", () => {
 });
 
 musicBtn?.addEventListener("click", () => {
-  AudioManager.unlock();
-  AudioManager.toggleMusic();
+  AudioManager.unlock();       // на всякий случай
+  AudioManager.toggleMusic();  // переключили состояние
+
+  // ✅ ВАЖНО: стартуем музыку прямо здесь, в жесте клика
+  AudioManager.startMusic();
 });
+
 
 // ✅ restart с кликом и запуском музыки
 restartBtn?.addEventListener('click', () => {

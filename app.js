@@ -222,10 +222,12 @@ const AudioManager = (() => {
   };
 })();
 
-// Разблокировка звука после первого взаимодействия
+// Разблокировка + старт музыки после первого взаимодействия
 window.addEventListener("pointerdown", () => {
   AudioManager.unlock();
+  AudioManager.startMusic(); // <-- добавили
 }, { once: true });
+
 
 // --- Helpers (grid) ---
 function makeEmptyGrid() {
@@ -744,6 +746,8 @@ window.addEventListener('keydown', (e) => {
 let touchStartX = 0, touchStartY = 0;
 
 boardEl.addEventListener('touchstart', (e) => {
+  AudioManager.unlock();
+  AudioManager.startMusic();
   const t = e.touches[0];
   touchStartX = t.clientX;
   touchStartY = t.clientY;

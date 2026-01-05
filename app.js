@@ -17,10 +17,14 @@ const globalBestEl = document.getElementById('globalBest');
 const mathListEl = document.getElementById('mathList');
 const restartBtn = document.getElementById('restartBtn');
 const shareBtn = document.getElementById('shareBtn');
+const soundBtn = document.getElementById('soundBtn');   // ✅ new
+const musicBtn = document.getElementById('musicBtn');   // ✅ new
 
 // --- State ---
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
+const AUDIO_KEY = `${STORAGE_KEY}_audio`;               // ✅ new
+
 const API_BASE = 'https://mgt-welding.ru/tg2048-api';
 const API_BEST_URL = `${API_BASE}/best`;
 const API_SCORE_URL = `${API_BASE}/score`;
@@ -70,6 +74,141 @@ function setupBoardLayers() {
   }
 }
 setupBoardLayers();
+
+// =======================
+// AudioManager (SFX + BGM)
+// =======================
+const AudioManager = (() => {
+  const saved = JSON.parse(localStorage.getItem(AUDIO_KEY) || "{}");
+
+  let soundOn = saved.soundOn ?? true;     // эффекты
+  let musicOn = saved.musicOn ?? true;     // музыка
+  let sfxVolume = saved.sfxVolume ?? 0.8;
+  let bgmVolume = saved.bgmVolume ?? 0.35;
+
+  let unlocked = false;
+
+  // BGM
+  const bgm = new Audio("audio/bgm.mp3");
+  bgm.loop = true;
+  bgm.preload = "auto";
+  bgm.volume = bgmVolume;
+
+  // Pools for SFX
+  const sfxPool = {
+    move: makePool("audio/move.mp3", 6),
+    merge: makePool("audio/merge.mp3", 8),
+    block: makePool("audio/block.mp3", 4),
+    click: makePool("audio/click.mp3", 4),
+    gameover: makePool("audio/gameover.mp3", 2),
+  };
+
+  function makePool(src, size) {
+    const arr = [];
+    for (let i = 0; i < size; i++) {
+      const a = new Audio(src);
+      a.preload = "auto";
+      a.volume = sfxVolume;
+      arr.push(a);
+    }
+    let idx = 0;
+    return {
+      play(volOverride) {
+        const a = arr[idx];
+        idx = (idx + 1) % arr.length;
+        try {
+          a.pause();
+          a.currentTime = 0;
+          a.volume = (volOverride ?? sfxVolume);
+          a.play().catch(() => {});
+        } catch {}
+      },
+      setVolume(v) {
+        arr.forEach(x => x.volume = v);
+      }
+    };
+  }
+
+  function save() {
+    localStorage.setItem(AUDIO_KEY, JSON.stringify({
+      soundOn, musicOn, sfxVolume, bgmVolume
+    }));
+  }
+
+  function syncButtons() {
+    if (soundBtn) soundBtn.textContent = soundOn ? "🔊" : "🔇";
+    if (musicBtn) musicBtn.textContent = musicOn ? "🎵" : "🚫🎵";
+  }
+
+  async function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+
+    // "прогрев" аудио (важно для мобилок)
+    try {
+      bgm.volume = 0;
+      await bgm.play();
+      bgm.pause();
+      bgm.currentTime = 0;
+      bgm.volume = bgmVolume;
+    } catch {}
+
+    if (musicOn) startMusic();
+  }
+
+  function startMusic() {
+    if (!musicOn || !unlocked) return;
+    try {
+      bgm.volume = bgmVolume;
+      bgm.play().catch(() => {});
+    } catch {}
+  }
+
+  function stopMusic() {
+    try {
+      bgm.pause();
+      bgm.currentTime = 0;
+    } catch {}
+  }
+
+  function playSfx(name, volOverride) {
+    if (!soundOn || !unlocked) return;
+    const p = sfxPool[name];
+    if (p) p.play(volOverride);
+  }
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    save();
+    syncButtons();
+    if (soundOn) playSfx("click", 0.6);
+  }
+
+  function toggleMusic() {
+    musicOn = !musicOn;
+    save();
+    syncButtons();
+    if (musicOn) startMusic();
+    else stopMusic();
+  }
+
+  syncButtons();
+
+  return {
+    unlock,
+    startMusic,
+    stopMusic,
+    playSfx,
+    toggleSound,
+    toggleMusic,
+    syncButtons,
+  };
+})();
+
+// Разблокировка звука после первого взаимодействия
+window.addEventListener("pointerdown", () => {
+  AudioManager.unlock();
+}, { once: true });
 
 // --- Helpers (grid) ---
 function makeEmptyGrid() {
@@ -129,7 +268,7 @@ function createTile(x, y, value) {
     x, y,
     prevX: x, prevY: y,
     value,
-    pendingValue: null,   // сюда кладём итог слияния (чтобы показать после движения)
+    pendingValue: null,
     removeAfter: false
   };
 }
@@ -165,15 +304,11 @@ function setTileContentAndStyle(tile, showPending = false) {
   const v = (showPending && tile.pendingValue) ? tile.pendingValue : tile.value;
 
   el.textContent = String(v);
-
-  // ✅ чтобы работали стили .tile[data-value="..."] в CSS
   el.dataset.value = String(v);
 
-  // ❌ убираем inline-цвета, иначе CSS не сработает
   el.style.background = '';
   el.style.color = '';
 }
-
 
 function setTileTransform(tile, scale = 1, noTransition = false) {
   const el = ensureTileEl(tile);
@@ -189,7 +324,6 @@ function setTileTransform(tile, scale = 1, noTransition = false) {
   if (noTransition) {
     el.style.transition = 'none';
     el.style.transform = `translate(${xPx}px, ${yPx}px) scale(${scale})`;
-    // принудительный reflow
     el.getBoundingClientRect();
     el.style.transition = 'transform 130ms ease-in-out';
   } else {
@@ -214,7 +348,6 @@ function removeTileEl(tile) {
   if (!el) return;
   el.style.transition = 'transform 130ms ease, opacity 130ms ease';
   el.style.opacity = '0';
-  // лёгкий уход
   el.style.transform += ' scale(0.85)';
   setTimeout(() => {
     el.remove();
@@ -236,7 +369,7 @@ function rebuildTilesDOM(noTransition = true) {
   }
 }
 
-// ресайз: пересчитать пиксели (Telegram иногда меняет размеры)
+// ресайз
 window.addEventListener('resize', () => {
   requestAnimationFrame(() => {
     for (let r = 0; r < SIZE; r++) {
@@ -289,7 +422,7 @@ function saveBest() {
   localStorage.setItem(`${STORAGE_KEY}_best`, String(best));
 }
 
-// --- HUD (score/best/math/global) ---
+// --- HUD ---
 function renderHUD() {
   scoreEl.textContent = String(score);
   bestEl.textContent = String(best);
@@ -338,13 +471,11 @@ function spawnTile(animated = true) {
 
 // --- Moves check ---
 function canMove() {
-  // пустые есть?
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       if (!grid[r][c]) return true;
     }
   }
-  // соседние равные?
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       const v = grid[r][c]?.value;
@@ -359,7 +490,7 @@ function canMove() {
 function processLine(lineTiles) {
   const arr = lineTiles.filter(Boolean);
   const result = [];
-  const merges = []; // {into, from, newValue, oldValue}
+  const merges = [];
 
   let i = 0;
   while (i < arr.length) {
@@ -375,7 +506,6 @@ function processLine(lineTiles) {
 
       merges.push({ into: a, from: b, newValue, oldValue: old });
 
-      // score и mathScore как у тебя
       score += newValue;
       mathScore += newValue;
       addMathLine(old, old, newValue);
@@ -396,7 +526,6 @@ function processLine(lineTiles) {
 function doMove(dir) {
   if (isAnimating) return;
 
-  // Собираем список всех плиток + сохраняем prev позиции
   const allTiles = [];
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
@@ -419,7 +548,6 @@ function doMove(dir) {
   function placeLine(lineTiles, fixedIndex, isRow, reverse) {
     const { kept, merges } = processLine(lineTiles);
 
-    // расставляем kept
     for (let i = 0; i < kept.length; i++) {
       const t = kept[i];
       const pos = reverse ? (SIZE - 1 - i) : i;
@@ -435,7 +563,6 @@ function doMove(dir) {
       }
     }
 
-    // исчезающие плитки: они должны “доехать” в ту же клетку, что и into
     for (const m of merges) {
       m.from.x = m.into.x;
       m.from.y = m.into.y;
@@ -462,28 +589,33 @@ function doMove(dir) {
     }
   }
 
-  // Определяем: было ли изменение
+  // Было ли изменение?
   let changed = mergesAll.length > 0;
   if (!changed) {
     for (const t of allTiles) {
       if (t.x !== t.prevX || t.y !== t.prevY) { changed = true; break; }
     }
   }
-  if (!changed) return;
 
-  // применяем новую сетку
+  // ❗ если ход невозможен — звук "block"
+  if (!changed) {
+    AudioManager.playSfx("block", 0.6);
+    tg?.HapticFeedback?.notificationOccurred?.("warning");
+    return;
+  }
+
+  // ✅ звук "move" или "merge" (один раз за ход)
+  AudioManager.playSfx(mergesAll.length ? "merge" : "move", mergesAll.length ? 0.8 : 0.4);
+
   grid = newGrid;
 
-  // best
   if (score > best) {
     best = score;
     saveBest();
   }
 
-  // === анимация движения ===
   isAnimating = true;
 
-  // Плитки едут (показываем старые значения во время движения)
   for (const t of allTiles) {
     setTileContentAndStyle(t, false);
     setTileTransform(t, 1, false);
@@ -493,17 +625,14 @@ function doMove(dir) {
     setTileTransform(t, 1, false);
   }
 
-  // После движения — применяем слияния, удаляем лишние, спавним новую
   setTimeout(() => {
     for (const m of mergesAll) {
-      // итоговое значение
       m.into.value = m.newValue;
       m.into.pendingValue = null;
 
       setTileContentAndStyle(m.into, false);
       bounceTile(m.into);
 
-      // удаляем "въехавшую"
       removeTileEl(m.from);
     }
 
@@ -512,8 +641,11 @@ function doMove(dir) {
     renderHUD();
     saveGame();
 
-    // game over
     if (!canMove()) {
+      // звук проигрыша + стоп музыки
+      AudioManager.playSfx("gameover", 0.9);
+      AudioManager.stopMusic();
+
       submitScoreToServer(score).finally(() => loadGlobalBest());
 
       if (tg?.showPopup) {
@@ -525,7 +657,11 @@ function doMove(dir) {
             { id: "close", type: "cancel", text: "Закрыть" }
           ]
         }, (btnId) => {
-          if (btnId === "new") newGame();
+          if (btnId === "new") {
+            AudioManager.playSfx("click", 0.7);
+            AudioManager.startMusic();
+            newGame();
+          }
         });
       } else {
         alert("Игра окончена!");
@@ -544,7 +680,6 @@ function newGame() {
   mathScore = 0;
   mathHistory = [];
 
-  // очистить DOM плиток
   tileLayerEl.innerHTML = '';
   tileEls.clear();
 
@@ -556,7 +691,24 @@ function newGame() {
   saveGame();
 }
 
-restartBtn?.addEventListener('click', newGame);
+// ✅ кнопки звука/музыки
+soundBtn?.addEventListener("click", () => {
+  AudioManager.unlock();
+  AudioManager.toggleSound();
+});
+
+musicBtn?.addEventListener("click", () => {
+  AudioManager.unlock();
+  AudioManager.toggleMusic();
+});
+
+// ✅ restart с кликом и запуском музыки
+restartBtn?.addEventListener('click', () => {
+  AudioManager.unlock();
+  AudioManager.playSfx("click", 0.7);
+  AudioManager.startMusic();
+  newGame();
+});
 
 // Keyboard controls
 window.addEventListener('keydown', (e) => {
@@ -596,7 +748,6 @@ boardEl.addEventListener('touchend', (e) => {
 if (!loadGame()) {
   newGame();
 } else {
-  // после загрузки: пересобрать DOM плиток и отрисовать HUD
   rebuildTilesDOM(true);
   renderHUD();
 }
@@ -605,6 +756,9 @@ loadGlobalBest();
 
 // Share
 shareBtn?.addEventListener('click', () => {
+  AudioManager.unlock();
+  AudioManager.playSfx("click", 0.7);
+
   const text = `Мой рекорд в 2048: ${best} 🔥\nГлобальный рекорд: ${globalBest || '—'}`;
   tg?.openTelegramLink?.(`https://t.me/share/url?text=${encodeURIComponent(text)}`);
 });

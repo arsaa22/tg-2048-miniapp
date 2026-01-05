@@ -25,7 +25,7 @@ const STORAGE_KEY = 'tg2048_v1';
 const AUDIO_KEY = `${STORAGE_KEY}_audio`;
 
 // ✅ ЕДИНЫЙ ЛИМИТ строк (важно: потом это место станет рекламным блоком)
-const MAX_MATH_LINES = 6;
+const MAX_MATH_LINES = 4;
 
 const API_BASE = 'https://mgt-welding.ru/tg2048-api';
 const API_BEST_URL = `${API_BASE}/best`;

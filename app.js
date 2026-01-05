@@ -759,13 +759,32 @@ if (!loadGame()) {
 loadGlobalBest();
 
 // Share
-shareBtn?.addEventListener('click', () => {
-  AudioManager.unlockFromGesture();
-  AudioManager.playSfx("click", 0.7);
+shareBtn.addEventListener('click', () => {
+  const tg = window.Telegram?.WebApp;
 
-  const text = `Мой рекорд в 2048: ${best} 🔥\nГлобальный рекорд: ${globalBest || '—'}`;
-  tg?.openTelegramLink?.(`https://t.me/share/url?text=${encodeURIComponent(text)}`);
+  const best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
+
+  // 🔗 ВАЖНО: тут поставь ссылку на запуск твоей игры в Telegram (deep link на бота/мини-апп)
+  // Пример: https://t.me/YourBot?startapp=game
+  const appLink = "https://t.me/YourBot?startapp=game";
+
+  // Красивый текст (переносы Telegram понимает)
+  const text =
+    `🎮 2048 Merge\n` +
+    `🏆 Мой рекорд: ${best}\n` +
+    `Сможешь лучше? 😄`;
+
+  // Telegram share link
+  const shareUrl =
+    `https://t.me/share/url?` +
+    `url=${encodeURIComponent(appLink)}` +
+    `&text=${encodeURIComponent(text)}`;
+
+  // ✅ Главное: открываем именно Telegram-ссылку
+  if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
+  else window.open(shareUrl, "_blank");
 });
+
 
 // --- Global best API ---
 async function loadGlobalBest() {

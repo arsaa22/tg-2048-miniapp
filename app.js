@@ -24,6 +24,9 @@ const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
 const AUDIO_KEY = `${STORAGE_KEY}_audio`;
 
+// ✅ ЕДИНЫЙ ЛИМИТ строк (важно: потом это место станет рекламным блоком)
+const MAX_MATH_LINES = 6;
+
 const API_BASE = 'https://mgt-welding.ru/tg2048-api';
 const API_BEST_URL = `${API_BASE}/best`;
 const API_SCORE_URL = `${API_BASE}/score`;
@@ -111,7 +114,7 @@ const AudioManager = (() => {
           a.pause();
           a.currentTime = 0;
           a.volume = (volOverride ?? sfxVolume);
-          a.play().catch(() => {}); // тихо игнорируем (без алертов)
+          a.play().catch(() => {});
         } catch {}
       },
       setVolume(v) {
@@ -157,8 +160,8 @@ const AudioManager = (() => {
   function startMusic() {
     if (!musicOn) return;
     ensureAudioCtx();
-    if (audioCtx.state !== "running") return; // пока не running — не стартуем
-    if (bgmSource) return; // уже играет
+    if (audioCtx.state !== "running") return;
+    if (bgmSource) return;
 
     const startNow = () => {
       if (!bgmBuffer || bgmSource || !musicOn) return;
@@ -167,8 +170,6 @@ const AudioManager = (() => {
       bgmSource.buffer = bgmBuffer;
       bgmSource.loop = true;
       bgmSource.connect(bgmGain);
-
-      // если вдруг закончится/сбросится — отпустим ссылку
       bgmSource.onended = () => { bgmSource = null; };
 
       try { bgmSource.start(0); } catch {}
@@ -196,12 +197,10 @@ const AudioManager = (() => {
     if (musicBtn) musicBtn.textContent = musicOn ? "🎵" : "🚫🎵";
   }
 
-  // ✅ Главная функция: вызывать ТОЛЬКО из жеста (тап/свайп/клик)
   function unlockFromGesture() {
     ensureAudioCtx();
     unlocked = true;
 
-    // Важно: resume() должен быть из gesture — тут мы как раз в gesture
     const resumePromise =
       (audioCtx.state === "suspended") ? audioCtx.resume() : Promise.resolve();
 
@@ -210,7 +209,7 @@ const AudioManager = (() => {
         preloadBgm();
         if (musicOn) startMusic();
       })
-      .catch(() => { /* без алертов */ });
+      .catch(() => {});
 
     syncButtons();
   }
@@ -249,12 +248,9 @@ const AudioManager = (() => {
   };
 })();
 
-
-// ✅ Музыка должна стартовать от любого первого жеста (тап/клик)
 window.addEventListener("pointerdown", () => {
   AudioManager.unlockFromGesture();
 }, { once: true });
-
 
 // --- Helpers (grid) ---
 function makeEmptyGrid() {
@@ -280,10 +276,13 @@ function valuesToGrid(values) {
   return g;
 }
 
+// ✅ Добавление строки в историю (строго ограничиваем MAX_MATH_LINES)
 function addMathLine(a, b, c) {
   const line = `${a} + ${b} = ${c}`;
   mathHistory.unshift(line);
-  mathHistory = mathHistory.slice(0, 6);
+  if (mathHistory.length > MAX_MATH_LINES) {
+    mathHistory.length = MAX_MATH_LINES;
+  }
 }
 
 // --- Tile objects ---
@@ -430,7 +429,13 @@ function loadGame() {
     grid = valuesToGrid(data.grid);
     score = Number(data.score || 0);
     mathScore = Number(data.mathScore || 0);
+
+    // ✅ загрузили и сразу ограничили
     mathHistory = Array.isArray(data.mathHistory) ? data.mathHistory : [];
+    if (mathHistory.length > MAX_MATH_LINES) {
+      mathHistory = mathHistory.slice(0, MAX_MATH_LINES);
+    }
+
     best = Number(data.best || best);
 
     return true;
@@ -453,6 +458,11 @@ function renderHUD() {
   bestEl.textContent = String(best);
   globalBestEl.textContent = globalBest ? String(globalBest) : '—';
 
+  // ✅ на всякий случай режем перед отрисовкой
+  if (mathHistory.length > MAX_MATH_LINES) {
+    mathHistory = mathHistory.slice(0, MAX_MATH_LINES);
+  }
+
   mathListEl.innerHTML = '';
   if (!mathHistory.length) {
     const e = document.createElement('div');
@@ -460,7 +470,8 @@ function renderHUD() {
     e.textContent = 'Пока нет слияний...';
     mathListEl.appendChild(e);
   } else {
-    for (const s of mathHistory) {
+    // ✅ рисуем строго лимит
+    for (const s of mathHistory.slice(0, MAX_MATH_LINES)) {
       const e = document.createElement('div');
       e.className = 'mathItem';
       e.textContent = s;
@@ -533,6 +544,8 @@ function processLine(lineTiles) {
 
       score += newValue;
       mathScore += newValue;
+
+      // ✅ добавляем строку в историю
       addMathLine(old, old, newValue);
 
       tg?.HapticFeedback?.impactOccurred?.('light');
@@ -699,6 +712,8 @@ function newGame() {
   grid = makeEmptyGrid();
   score = 0;
   mathScore = 0;
+
+  // ✅ сброс истории
   mathHistory = [];
 
   tileLayerEl.innerHTML = '';
@@ -721,7 +736,7 @@ soundBtn?.addEventListener("click", () => {
 musicBtn?.addEventListener("click", () => {
   AudioManager.unlockFromGesture();
   AudioManager.toggleMusic();
-  AudioManager.startMusic(); // в жесте клика
+  AudioManager.startMusic();
 });
 
 // ✅ restart
@@ -745,9 +760,7 @@ window.addEventListener('keydown', (e) => {
 let touchStartX = 0, touchStartY = 0;
 
 boardEl.addEventListener('touchstart', (e) => {
-  // ✅ жест пользователя: будим AudioContext и стартуем музыку
   AudioManager.unlockFromGesture();
-
 
   const t = e.touches[0];
   touchStartX = t.clientX;

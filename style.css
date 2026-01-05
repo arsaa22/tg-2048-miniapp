@@ -171,3 +171,18 @@ body{
 
 .tile[data-value="4096"],
 .tile[data-value="8192"] { background:#0f172a; color:#fff; }
+
+/* --- FIX: нижний блок (математика/реклама) не раздувает экран --- */
+#mathList{
+  max-height: 120px;     /* можешь поставить 100–160px */
+  overflow-y: auto;      /* появится внутренний скролл */
+  padding-right: 8px;    /* чтобы текст не залезал под скроллбар */
+  white-space: pre-line; /* чтобы \n нормально переносились */
+}
+
+#shareBtn{
+  position: sticky;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  z-index: 10;
+}
+

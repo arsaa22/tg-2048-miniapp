@@ -86,29 +86,6 @@ body{
 
 
 
-.mathBox{
-  margin-top:12px;
-  border:1px solid var(--line);
-  border-radius:14px;
-  padding:12px;
-}
-.mathTitle{font-weight:900; margin-bottom:8px;}
-.mathList{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  color:var(--muted);
-  min-height:22px;
-}
-.mathItem{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;}
-
-.hint{
-  margin-top:10px;
-  color:var(--muted);
-  font-size:13px;
-  line-height:1.4;
-}
-
 /* === СЛОИ: фоновые клетки (grid) и плитки (absolute) === */
 
 .board .cell-layer{
@@ -172,17 +149,12 @@ body{
 .tile[data-value="4096"],
 .tile[data-value="8192"] { background:#0f172a; color:#fff; }
 
-/* --- FIX: нижний блок (математика/реклама) не раздувает экран --- */
-#mathList{
-  max-height: 120px;     /* можешь поставить 100–160px */
-  overflow-y: auto;      /* появится внутренний скролл */
-  padding-right: 8px;    /* чтобы текст не залезал под скроллбар */
-  white-space: pre-line; /* чтобы \n нормально переносились */
-}
 
 #shareBtn{
-  position: sticky;
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  z-index: 10;
+  position: relative;
+  margin-top: 12px;
+  z-index: 1;
+  width:100%;
 }
+
 

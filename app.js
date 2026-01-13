@@ -537,7 +537,7 @@ function doMove(dir) {
   const mergesAll = [];
   const removedTiles = [];
 
-  const range = [0, 1, 2, 3];
+  const range = Array.from({ length: SIZE }, (_, i) => i);
 
   function placeLine(lineTiles, fixedIndex, isRow, reverse) {
     const { kept, merges } = processLine(lineTiles);

@@ -22,6 +22,11 @@ const musicBtn = document.getElementById('musicBtn');
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
 const AUDIO_KEY = `${STORAGE_KEY}_audio`;
+// --- CloudStorage (личный рекорд между устройствами) ---
+const CLOUD_BEST_KEY = `${STORAGE_KEY}_best`; // ключ в Telegram CloudStorage
+let cloudBestLoaded = false;                  // прочитали ли уже best из облака
+let pendingCloudSync = false;                 // нужно ли потом досинхронизировать
+
 
 
 const API_BASE = 'https://mgt-welding.ru/tg2048-api';
@@ -428,8 +433,32 @@ function clearSave() {
 }
 
 function saveBest() {
+  // 1) всегда сохраняем локально (на всякий случай)
   localStorage.setItem(`${STORAGE_KEY}_best`, String(best));
+
+  // 2) если мы НЕ в Telegram Mini App — CloudStorage недоступен
+  if (!tg?.CloudStorage?.getItem || !tg?.CloudStorage?.setItem) return;
+
+  // 3) защита: пока мы ещё не прочитали best из облака,
+  // не пишем туда сразу, чтобы не затереть высокий рекорд с другого устройства
+  if (!cloudBestLoaded) {
+    pendingCloudSync = true;
+    return;
+  }
+
+  // 4) безопасная запись: сначала читаем best из облака, и пишем только если наш больше
+  tg.CloudStorage.getItem(CLOUD_BEST_KEY, (err, value) => {
+    const cloudVal = (!err && value != null) ? Number(value) : 0;
+
+    // пишем в облако ТОЛЬКО если наш best больше облачного
+    if (best > cloudVal) {
+      tg.CloudStorage.setItem(CLOUD_BEST_KEY, String(best), (err2) => {
+        if (err2) console.warn("CloudStorage setItem error:", err2);
+      });
+    }
+  });
 }
+
 
 // --- HUD ---
 function renderHUD() {
@@ -437,6 +466,42 @@ function renderHUD() {
   bestEl.textContent = String(best);
   globalBestEl.textContent = globalBest ? String(globalBest) : '—';
 }
+
+function loadBestFromCloud() {
+  // если не внутри Telegram — просто считаем "загружено" и выходим
+  if (!tg?.CloudStorage?.getItem) {
+    cloudBestLoaded = true;
+    return;
+  }
+
+  tg.CloudStorage.getItem(CLOUD_BEST_KEY, (err, value) => {
+    cloudBestLoaded = true;
+
+    const cloudVal = (!err && value != null) ? Number(value) : 0;
+
+    // если в облаке рекорд выше — берём его
+    if (cloudVal > best) {
+      best = cloudVal;
+
+      // синхронизируем локально, чтобы share/интерфейс тоже был ок
+      localStorage.setItem(`${STORAGE_KEY}_best`, String(best));
+      renderHUD();
+    }
+    // если у нас рекорд выше — обновим облако
+    else if (best > cloudVal && tg?.CloudStorage?.setItem) {
+      tg.CloudStorage.setItem(CLOUD_BEST_KEY, String(best), (err2) => {
+        if (err2) console.warn("CloudStorage setItem error:", err2);
+      });
+    }
+
+    // если мы успели поднять best до загрузки облака — досинхронизируем безопасно
+    if (pendingCloudSync) {
+      pendingCloudSync = false;
+      saveBest(); // saveBest сам сделает "прочитать и записать только если больше"
+    }
+  });
+}
+
 
 
 // --- Spawning ---
@@ -757,12 +822,14 @@ if (!loadGame()) {
 }
 
 loadGlobalBest();
+loadBestFromCloud();
+
 
 // Share
 shareBtn.addEventListener('click', () => {
   const tg = window.Telegram?.WebApp;
 
-  const best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
+  const myBest = best;
 
   // 🔗 ВАЖНО: тут поставь ссылку на запуск твоей игры в Telegram (deep link на бота/мини-апп)
   // Пример: https://t.me/YourBot?startapp=game
@@ -771,7 +838,7 @@ shareBtn.addEventListener('click', () => {
   // Красивый текст (переносы Telegram понимает)
   const text =
     `🎮 Cube 2048\n` +
-    `🏆 Мой рекорд: ${best}\n` +
+    `🏆 Мой рекорд: ${myBest}\n` +
     `Сможешь лучше? 😄`;
 
   // Telegram share link

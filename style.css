@@ -206,6 +206,7 @@ body{
 .tile[data-value="1024"] { background:#a3e635; color:#111827; }
 .tile[data-value="2048"] { background:#34d399; color:#111827; }
 
+
 .tile[data-value="4096"],
 .tile[data-value="8192"] { background:#0f172a; color:#fff; }
 

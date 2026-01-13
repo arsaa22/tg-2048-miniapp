@@ -904,3 +904,4 @@ async function submitScoreToServer(finalScore) {
     globalBestSubmitting = false;
   }
 }
+

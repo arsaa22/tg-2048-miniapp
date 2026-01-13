@@ -13,8 +13,6 @@ const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
 const globalBestEl = document.getElementById('globalBest');
-const movesEl = document.getElementById('moves');
-const timeEl  = document.getElementById('time');
 const restartBtn = document.getElementById('restartBtn');
 const shareBtn = document.getElementById('shareBtn');
 const soundBtn = document.getElementById('soundBtn');
@@ -24,11 +22,12 @@ const musicBtn = document.getElementById('musicBtn');
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
 const AUDIO_KEY = `${STORAGE_KEY}_audio`;
-
 // --- CloudStorage (личный рекорд между устройствами) ---
 const CLOUD_BEST_KEY = `${STORAGE_KEY}_best`; // ключ в Telegram CloudStorage
 let cloudBestLoaded = false;                  // прочитали ли уже best из облака
 let pendingCloudSync = false;                 // нужно ли потом досинхронизировать
+
+
 
 const API_BASE = 'https://mgt-welding.ru/tg2048-api';
 const API_BEST_URL = `${API_BASE}/best`;
@@ -46,102 +45,6 @@ let globalBest = 0;
 let globalBestSubmitting = false;
 
 let best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
-
-// --- Analytics session ---
-let sessionId = null;
-let sessionStartTs = 0;
-let moves = 0;
-let maxTile = 0;
-let uiTimer = null;
-
-function formatTime(ms){
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(s / 60);
-  const ss = String(s % 60).padStart(2, "0");
-  return `${m}:${ss}`;
-}
-
-function startUiTimer(){
-  stopUiTimer();
-  uiTimer = setInterval(() => {
-    if (timeEl) timeEl.textContent = formatTime(Date.now() - sessionStartTs);
-  }, 1000);
-}
-
-function stopUiTimer(){
-  if (uiTimer) { clearInterval(uiTimer); uiTimer = null; }
-}
-
-
-function makeSessionId() {
-  return (crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`);
-}
-
-async function apiPost(path, payload) {
-  return fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-function sendEvent(event_name, event_value = null, meta = null) {
-  if (!tg?.initData) return;
-  apiPost("/event", {
-    initData: tg.initData,
-    session_id: sessionId, // может быть null для app_open (это ок)
-    event_name,
-    event_value,
-    meta
-  }).catch(() => {});
-}
-
-function startSession() {
-  sessionId = makeSessionId();
-  sessionStartTs = Date.now();
-  moves = 0;
-  maxTile = 0;
-  startUiTimer();
-  renderHUD();
-
-
-  sendEvent("session_start");
-  apiPost("/session_start", { initData: tg.initData, session_id: sessionId }).catch(() => {});
-}
-
-function endSession(finalScore) {
-  // страховки на случай редких глюков
-  stopUiTimer();
-  if (!sessionId) sessionId = makeSessionId();
-  if (!sessionStartTs) sessionStartTs = Date.now();
-
-  const duration_ms = Date.now() - sessionStartTs;
-
-  // обновим maxTile перед отправкой (на всякий)
-  maxTile = 0;
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      const v = grid[r][c]?.value || 0;
-      if (v > maxTile) maxTile = v;
-    }
-  }
-
-  sendEvent("session_end");
-  apiPost("/session_end", {
-    initData: tg.initData,
-    session_id: sessionId,
-    score_final: finalScore,
-    best_at_end: best,
-    duration_ms,
-    moves,
-    max_tile: maxTile
-  }).catch(() => {});
-}
-
-// ✅ retention: отметим открытие приложения (активность дня)
-if (tg) {
-  sendEvent("app_open", null, { platform: tg.platform });
-}
 
 // --- Layers (board) ---
 let cellLayerEl, tileLayerEl;
@@ -373,6 +276,7 @@ function valuesToGrid(values) {
   return g;
 }
 
+
 // --- Tile objects ---
 function createTile(x, y, value) {
   return {
@@ -497,9 +401,9 @@ window.addEventListener('resize', () => {
 // --- Storage ---
 function saveGame() {
   const data = {
-    grid: gridToValues(),
-    score,
-    best
+  grid: gridToValues(),
+  score,
+  best
   };
 
   localStorage.setItem(`${STORAGE_KEY}_save`, JSON.stringify(data));
@@ -522,6 +426,7 @@ function loadGame() {
     return false;
   }
 }
+
 
 function clearSave() {
   localStorage.removeItem(`${STORAGE_KEY}_save`);
@@ -554,16 +459,13 @@ function saveBest() {
   });
 }
 
+
 // --- HUD ---
 function renderHUD() {
   scoreEl.textContent = String(score);
   bestEl.textContent = String(best);
   globalBestEl.textContent = globalBest ? String(globalBest) : '—';
-
-  if (movesEl) movesEl.textContent = String(moves);
-  if (timeEl)  timeEl.textContent  = formatTime(Date.now() - sessionStartTs);
 }
-
 
 function loadBestFromCloud() {
   // если не внутри Telegram — просто считаем "загружено" и выходим
@@ -599,6 +501,8 @@ function loadBestFromCloud() {
     }
   });
 }
+
+
 
 // --- Spawning ---
 function spawnTile(animated = true) {
@@ -663,6 +567,7 @@ function processLine(lineTiles) {
       merges.push({ into: a, from: b, newValue, oldValue: old });
 
       score += newValue;
+
 
       tg?.HapticFeedback?.impactOccurred?.('light');
 
@@ -756,11 +661,6 @@ function doMove(dir) {
     return;
   }
 
-  // ✅ успешный ход
-  moves += 1;
-
-  isAnimating = true;
-
   AudioManager.playSfx(mergesAll.length ? "merge" : "move", mergesAll.length ? 0.8 : 0.4);
 
   grid = newGrid;
@@ -769,6 +669,8 @@ function doMove(dir) {
     best = score;
     saveBest();
   }
+
+  isAnimating = true;
 
   for (const t of allTiles) {
     setTileContentAndStyle(t, false);
@@ -799,10 +701,6 @@ function doMove(dir) {
       AudioManager.playSfx("gameover", 0.9);
       AudioManager.stopMusic();
 
-      // ✅ завершение сессии (длительность/ходы/score)
-      endSession(score);
-
-      // оставляем старый лидерборд как был
       submitScoreToServer(score).finally(() => loadGlobalBest());
 
       if (tg?.showPopup) {
@@ -817,10 +715,6 @@ function doMove(dir) {
           if (btnId === "new") {
             AudioManager.playSfx("click", 0.7);
             AudioManager.startMusic();
-
-            // ✅ это тоже рестарт
-            sendEvent("restart_click");
-
             newGame();
           }
         });
@@ -839,8 +733,6 @@ function newGame() {
   grid = makeEmptyGrid();
   score = 0;
 
-  // ✅ старт новой сессии
-  startSession();
 
   tileLayerEl.innerHTML = '';
   tileEls.clear();
@@ -857,18 +749,12 @@ function newGame() {
 soundBtn?.addEventListener("click", () => {
   AudioManager.unlockFromGesture();
   AudioManager.toggleSound();
-
-  // ✅ событие
-  sendEvent("sound_toggle", soundBtn.textContent === "🔊" ? "on" : "off");
 });
 
 musicBtn?.addEventListener("click", () => {
   AudioManager.unlockFromGesture();
   AudioManager.toggleMusic();
   AudioManager.startMusic();
-
-  // ✅ событие
-  sendEvent("music_toggle", musicBtn.textContent === "🎵" ? "on" : "off");
 });
 
 // ✅ restart
@@ -876,10 +762,6 @@ restartBtn?.addEventListener('click', () => {
   AudioManager.unlockFromGesture();
   AudioManager.playSfx("click", 0.7);
   AudioManager.startMusic();
-
-  // ✅ событие
-  sendEvent("restart_click");
-
   newGame();
 });
 
@@ -930,48 +812,49 @@ boardEl.addEventListener('pointercancel', () => {
   swipeActive = false;
 });
 
+
 // старт / загрузка
 if (!loadGame()) {
   newGame();
 } else {
   rebuildTilesDOM(true);
   renderHUD();
-
-  // ✅ новая сессия при входе в сохранённую игру
-  startSession();
-  sendEvent("resume_game");
 }
 
 loadGlobalBest();
 loadBestFromCloud();
 
+
 // Share
 shareBtn.addEventListener('click', () => {
-  // ✅ событие
-  sendEvent("share_click");
-
   const tg = window.Telegram?.WebApp;
 
   const myBest = Math.max(
-    Number(best || 0),
-    Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0)
-  );
+  Number(best || 0),
+  Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0)
+);
+
+
 
   const appLink = "https://t.me/connecting_the_cube_bot?startapp=game";
 
+  // Красивый текст (переносы Telegram понимает)
   const text =
     `🎮 Cube 2048\n` +
     `🏆 Мой рекорд: ${myBest}\n` +
     `Сможешь лучше? 😄`;
 
+  // Telegram share link
   const shareUrl =
     `https://t.me/share/url?` +
     `url=${encodeURIComponent(appLink)}` +
     `&text=${encodeURIComponent(text)}`;
 
+  // ✅ Главное: открываем именно Telegram-ссылку
   if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
   else window.open(shareUrl, "_blank");
 });
+
 
 // --- Global best API ---
 async function loadGlobalBest() {

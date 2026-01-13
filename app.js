@@ -934,3 +934,26 @@ async function submitScoreToServer(finalScore) {
   }
 }
 
+
+
+
+
+
+(async () => {
+  const tg = window.Telegram?.WebApp;
+  const API_BASE = "https://mgt-welding.ru/tg2048-api";
+  if (!tg?.initData) {
+    tg?.showAlert?.("Нет tg.initData (ты не внутри Telegram Mini App)");
+    return;
+  }
+
+  try {
+    const r = await fetch(`${API_BASE}/admin/ping`, {
+      headers: { "X-Tg-Init-Data": tg.initData }
+    });
+    const text = await r.text().catch(() => "");
+    tg?.showAlert?.(`admin/ping status: ${r.status}\n${text.slice(0,200)}`);
+  } catch (e) {
+    tg?.showAlert?.(`admin/ping error: ${String(e)}`);
+  }
+})();

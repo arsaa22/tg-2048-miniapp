@@ -766,7 +766,7 @@ shareBtn.addEventListener('click', () => {
 
   // 🔗 ВАЖНО: тут поставь ссылку на запуск твоей игры в Telegram (deep link на бота/мини-апп)
   // Пример: https://t.me/YourBot?startapp=game
-  const appLink = "https://t.me/USERNAME_БОТА?startapp=game";
+  const appLink = "https://t.me/connecting_the_cube_bot?startapp=game";
 
   // Красивый текст (переносы Telegram понимает)
   const text =

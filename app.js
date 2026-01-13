@@ -829,17 +829,22 @@ loadBestFromCloud();
 shareBtn.addEventListener('click', () => {
   const tg = window.Telegram?.WebApp;
 
-  const myBest = best;
+  const myBest = Math.max(
+  Number(best || 0),
+  Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0)
+);
 
-  // 🔗 ВАЖНО: тут поставь ссылку на запуск твоей игры в Telegram (deep link на бота/мини-апп)
-  // Пример: https://t.me/YourBot?startapp=game
+
+
   const appLink = "https://t.me/connecting_the_cube_bot?startapp=game";
 
   // Красивый текст (переносы Telegram понимает)
   const text =
-    `🎮 Cube 2048\n` +
-    `🏆 Мой рекорд: ${myBest}\n` +
-    `Сможешь лучше? 😄`;
+  `🎮 Cube 2048\n` +
+  `🏆 Мой рекорд: ${myBest}\n` +
+  `Играть: ${appLink}\n` +
+  `Сможешь лучше? 😄`;
+
 
   // Telegram share link
   const shareUrl =

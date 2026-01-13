@@ -13,6 +13,8 @@ const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
 const globalBestEl = document.getElementById('globalBest');
+const movesEl = document.getElementById('moves');
+const timeEl  = document.getElementById('time');
 const restartBtn = document.getElementById('restartBtn');
 const shareBtn = document.getElementById('shareBtn');
 const soundBtn = document.getElementById('soundBtn');
@@ -50,6 +52,26 @@ let sessionId = null;
 let sessionStartTs = 0;
 let moves = 0;
 let maxTile = 0;
+let uiTimer = null;
+
+function formatTime(ms){
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return `${m}:${ss}`;
+}
+
+function startUiTimer(){
+  stopUiTimer();
+  uiTimer = setInterval(() => {
+    if (timeEl) timeEl.textContent = formatTime(Date.now() - sessionStartTs);
+  }, 1000);
+}
+
+function stopUiTimer(){
+  if (uiTimer) { clearInterval(uiTimer); uiTimer = null; }
+}
+
 
 function makeSessionId() {
   return (crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`);
@@ -79,6 +101,9 @@ function startSession() {
   sessionStartTs = Date.now();
   moves = 0;
   maxTile = 0;
+  startUiTimer();
+  renderHUD();
+
 
   sendEvent("session_start");
   apiPost("/session_start", { initData: tg.initData, session_id: sessionId }).catch(() => {});
@@ -86,6 +111,7 @@ function startSession() {
 
 function endSession(finalScore) {
   // страховки на случай редких глюков
+  stopUiTimer();
   if (!sessionId) sessionId = makeSessionId();
   if (!sessionStartTs) sessionStartTs = Date.now();
 
@@ -533,7 +559,11 @@ function renderHUD() {
   scoreEl.textContent = String(score);
   bestEl.textContent = String(best);
   globalBestEl.textContent = globalBest ? String(globalBest) : '—';
+
+  if (movesEl) movesEl.textContent = String(moves);
+  if (timeEl)  timeEl.textContent  = formatTime(Date.now() - sessionStartTs);
 }
+
 
 function loadBestFromCloud() {
   // если не внутри Telegram — просто считаем "загружено" и выходим

@@ -21,12 +21,31 @@ body{
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
 }
-.wrap{
+
+.card{
+  width:100%;
+  max-width:520px;
+  border:1px solid var(--line);
+  background:var(--card);
+  border-radius:16px;
   padding:16px;
-  display:flex;
-  justify-content:center;   /* по горизонтали в центре */
-  align-items:flex-start;   /* ✅ по вертикали сверху */
 }
+
+.hint{
+  margin-top:12px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.35;
+}
+
+.wrap{
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  min-height: 100dvh;
+}
+
 
 
 .header{
@@ -118,12 +137,13 @@ body{
   min-width:0; /* важно, чтобы элементы не вылезали за границы */
 }
 
-/* На узких телефонах (ширина до 420 px) делаем две колонки */
-@media (max-width:420px){
+/* На телефонах (до 520px) делаем две колонки */
+@media (max-width:520px){
   .stats{
     grid-template-columns:repeat(2, minmax(0, 1fr));
   }
 }
+
 
 
 .label{color:var(--muted); font-size:12px;}
@@ -310,3 +330,23 @@ body{
   .value{ font-size:18px; }
   .hint{ font-size:12px; }
 }
+
+:root{
+  --ui-reserve: 340px; /* запас под шапку+статы+кнопки */
+}
+
+.board{
+  width: min(100%, calc(100dvh - var(--ui-reserve)));
+  aspect-ratio: 1 / 1;
+  margin-inline:auto;
+}
+
+@media (max-height:740px){
+  :root{ --ui-reserve: 300px; }
+}
+
+@media (max-height:670px){
+  :root{ --ui-reserve: 260px; }
+  .hint{ display:none; }
+}
+

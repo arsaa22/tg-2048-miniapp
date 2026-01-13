@@ -22,11 +22,39 @@ body{
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
 }
 .wrap{
+  width:100%;
+  min-height:100dvh;
+
+  /* ✅ безопасные отступы (и для Telegram, и для телефонов) */
   padding:16px;
+  padding-left:  calc(16px + env(safe-area-inset-left));
+  padding-right: calc(16px + env(safe-area-inset-right));
+  padding-top:   calc(16px + env(safe-area-inset-top));
+  padding-bottom:calc(16px + env(safe-area-inset-bottom));
+
   display:flex;
-  justify-content:center;   /* по горизонтали в центре */
-  align-items:flex-start;   /* ✅ по вертикали сверху */
+  justify-content:center;
+  align-items:flex-start;
 }
+
+.card{
+  width:100%;
+  max-width:520px;
+
+  /* ✅ аккуратная рамка */
+  border:1px solid var(--line);
+  background:var(--card);
+
+  /* ✅ лаконичные скругления */
+  border-radius:16px;
+
+  /* ✅ внутренний “воздух” */
+  padding:16px;
+
+  /* чтобы внутри ничего не вылезало */
+  min-width:0;
+}
+
 
 
 .header{

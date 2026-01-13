@@ -462,10 +462,11 @@ function saveBest() {
 
 // --- HUD ---
 function renderHUD() {
-  scoreEl.textContent = String(score);
+  if (scoreEl) scoreEl.textContent = String(score);   // ✅ теперь не упадёт
   bestEl.textContent = String(best);
   globalBestEl.textContent = globalBest ? String(globalBest) : '—';
 }
+
 
 function loadBestFromCloud() {
   // если не внутри Telegram — просто считаем "загружено" и выходим

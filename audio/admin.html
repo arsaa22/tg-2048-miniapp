@@ -1,16 +1,15 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" class="admin">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Cube 2048 — Admin</title>
 
-  <!-- Telegram Mini Apps API -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+
+<body class="admin">
   <div class="wrap">
     <div class="card">
       <div class="header">
@@ -27,12 +26,53 @@
         </div>
       </div>
 
-      <!-- сюда JS будет подставлять статистику -->
-      <div id="adminRoot" style="margin-top:12px;"></div>
+      <!-- Панель фильтра -->
+      <div class="adminToolbar">
+        <div class="field">
+          <div class="fieldLabel">С</div>
+          <input type="date" id="admFrom">
+        </div>
+
+        <div class="field">
+          <div class="fieldLabel">По</div>
+          <input type="date" id="admTo">
+        </div>
+
+        <button id="admApply" class="btn btn-primary">Обновить</button>
+      </div>
+
+      <div id="admError" class="adminError" hidden></div>
+
+      <!-- KPI -->
+      <div class="section">
+        <div class="sectionTitle">KPI</div>
+        <div id="admKpi" class="kpiGrid"></div>
+      </div>
+
+      <!-- Графики -->
+      <div class="section">
+        <div class="sectionTitle">DAU и игры</div>
+        <canvas id="chartDaily" height="160"></canvas>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">Retention</div>
+        <canvas id="chartRetention" height="180"></canvas>
+      </div>
+
+      <!-- Таблицы -->
+      <div class="section">
+        <div class="sectionTitle">Топ игроков</div>
+        <div id="admTop"></div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle">Сессии</div>
+        <div id="admSessions"></div>
+      </div>
     </div>
   </div>
 
-  <!-- ✅ Шаг C5: подключаем логику админки -->
-  <script src="adminPanel.js?v=1"></script>
+  <script src="adminPanel.js?v=2"></script>
 </body>
 </html>

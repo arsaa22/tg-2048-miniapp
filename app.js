@@ -17,6 +17,8 @@ const restartBtn = document.getElementById('restartBtn');
 const shareBtn = document.getElementById('shareBtn');
 const soundBtn = document.getElementById('soundBtn');
 const musicBtn = document.getElementById('musicBtn');
+const adminGoBtn = document.getElementById('adminGoBtn');
+
 
 // --- State ---
 const SIZE = 4;
@@ -835,6 +837,32 @@ shareBtn.addEventListener('click', () => {
   Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0)
 );
 
+// --- Admin button (видно только админу) ---
+if (adminGoBtn) {
+  // 1) по умолчанию скрываем всем
+  adminGoBtn.style.display = "none";
+
+  // 2) проверяем доступ (только внутри Telegram есть initData)
+  (async () => {
+    if (!tg?.initData) return;
+
+    try {
+      const r = await fetch(`${API_BASE}/admin/ping`, {
+        headers: { "X-Tg-Init-Data": tg.initData }
+      });
+
+      // если сервер сказал OK — показываем кнопку
+      adminGoBtn.style.display = r.ok ? "" : "none";
+    } catch (e) {
+      adminGoBtn.style.display = "none";
+    }
+  })();
+
+  // 3) по клику переходим на admin.html
+  adminGoBtn.addEventListener("click", () => {
+    location.href = "admin.html";
+  });
+}
 
 
   const appLink = "https://t.me/connecting_the_cube_bot?startapp=game";

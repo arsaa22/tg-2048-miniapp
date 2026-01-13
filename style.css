@@ -246,3 +246,98 @@ body{
   z-index: 1;
   width:100%;
 }
+
+/* === Admin page: разрешаем скролл === */
+html.admin, body.admin{
+  height:auto;
+  overflow:auto;
+  overscroll-behavior:auto;
+}
+
+/* === Admin UI === */
+.adminToolbar{
+  margin-top:12px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:flex-end;
+}
+
+.adminToolbar .field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:140px;
+}
+
+.fieldLabel{
+  color:var(--muted);
+  font-size:12px;
+}
+
+.adminToolbar input[type="date"]{
+  height:44px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+}
+
+.section{
+  margin-top:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  background:rgba(255,255,255,.02);
+}
+
+.sectionTitle{
+  font-weight:900;
+  margin-bottom:10px;
+}
+
+.kpiGrid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+
+@media (min-width:520px){
+  .kpiGrid{ grid-template-columns:repeat(4, minmax(0,1fr)); }
+}
+
+.kpiCard{
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px;
+  background:rgba(0,0,0,.12);
+}
+
+.kpiLabel{ color:var(--muted); font-size:12px; }
+.kpiValue{ margin-top:6px; font-size:18px; font-weight:900; }
+
+.adminError{
+  margin-top:12px;
+  color:#ffb4b4;
+  border:1px solid rgba(255,180,180,.3);
+  background:rgba(255,180,180,.06);
+  padding:10px 12px;
+  border-radius:12px;
+}
+
+.adminTableWrap{ overflow:auto; }
+.adminTable{
+  width:100%;
+  border-collapse:collapse;
+}
+.adminTable th, .adminTable td{
+  padding:8px 6px;
+  border-bottom:1px solid var(--line);
+  font-size:13px;
+}
+.adminTable th{
+  text-align:left;
+  color:var(--muted);
+  font-weight:700;
+}

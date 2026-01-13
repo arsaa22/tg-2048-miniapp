@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cube 2048 — Admin</title>
+
+  <!-- Telegram Mini Apps API -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div class="brand">
+          <div class="title">Админка</div>
+          <div class="subtitle">Статистика игры</div>
+        </div>
+
+        <div class="actions">
+          <button id="backBtn" class="btn btn-primary">
+            <span class="ico">←</span>
+            <span>Назад</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- сюда JS будет подставлять статистику -->
+      <div id="adminRoot" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- ✅ Шаг C5: подключаем логику админки -->
+  <script src="adminPanel.js?v=1"></script>
+</body>
+</html>

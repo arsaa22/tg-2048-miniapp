@@ -108,14 +108,16 @@ body{
 .stats{
   margin-top:12px;
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:repeat(3, minmax(0, 1fr)); /* ✅ важно */
   gap:10px;
 }
 .stat{
   border:1px solid var(--line);
   border-radius:12px;
   padding:10px;
+  min-width:0; /* ✅ важно, иначе grid может "выпирать" */
 }
+
 .label{color:var(--muted); font-size:12px;}
 .value{font-size:20px; font-weight:900; margin-top:4px;}
 
@@ -281,3 +283,22 @@ body{
 
 .adminTables{ margin-top:12px; }
 .adminTableTitle{ font-weight:900; margin:8px 0; }
+
+/* ✅ на телефоне делаем 2 колонки, чтобы все карточки точно влезали */
+@media (max-width: 420px){
+  .stats{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+}
+
+
+/* ✅ делаем экран “честным” для мобильных браузеров/Telegram */
+.wrap{
+  min-height: 100dvh;
+}
+
+/* ✅ если высоты не хватает — уменьшаем отступы/шрифты */
+@media (max-height: 740px){
+  .wrap{ padding:10px; }
+  .title{ font-size:20px; }
+  .value{ font-size:18px; }
+  .hint{ font-size:12px; }
+}

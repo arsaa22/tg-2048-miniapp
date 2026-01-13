@@ -14,14 +14,22 @@
   <div class="wrap">
     <div class="card">
       <div class="header">
-        <div>
+        <div class="brand">
           <div class="title">Cube 2048</div>
-          <div class="subtitle">Соединяй одинаковые блоки</div>
+          <div class="subtitle">Соединяй блоки • бей личный и мировой рекорд</div>
         </div>
-        <button id="restartBtn" class="btn">↻ Новая</button>
-        <button id="soundBtn" class="btn" title="Звуки">🔊</button>
-        <button id="musicBtn" class="btn" title="Музыка">🎵</button>
+
+        <div class="actions">
+          <button id="restartBtn" class="btn btn-primary">
+            <span class="ico">↻</span>
+            <span>Новая</span>
+          </button>
+
+          <button id="soundBtn" class="btn btn-icon" title="Звуки" aria-label="Звуки">🔊</button>
+          <button id="musicBtn" class="btn btn-icon" title="Музыка" aria-label="Музыка">🎵</button>
+        </div>
       </div>
+
 
       <div class="stats">
         <div class="stat">
@@ -56,6 +64,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

@@ -21,19 +21,50 @@ body{
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
 }
-.wrap{padding:16px; display:flex; justify-content:center;}
-.card{
-  width:100%;
-  max-width:520px;
-  border:1px solid var(--line);
-  background:var(--card);
-  border-radius:16px;
+.wrap{
   padding:16px;
+  display:flex;
+  justify-content:center;   /* по горизонтали в центре */
+  align-items:flex-start;   /* ✅ по вертикали сверху */
 }
 
-.header{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
-.title{font-size:22px; font-weight:900;}
-.subtitle{color:var(--muted); margin-top:4px;}
+
+.header{
+  display:flex;
+  align-items:center;          /* ✅ всё по одной линии */
+  justify-content:space-between;
+  gap:12px;
+}
+
+.brand{
+  min-width:0;                 /* ✅ чтобы текст красиво переносился */
+}
+
+.title{
+  font-size:22px;
+  font-weight:900;
+  letter-spacing:0.2px;
+}
+
+.subtitle{
+  margin-top:6px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.25;
+  max-width:26ch;              /* ✅ чтобы подзаголовок был аккуратным */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+}
+
+.actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;               /* ✅ кнопки не сжимаются */
+}
+
 
 .btn{
   border:1px solid var(--line);
@@ -43,7 +74,36 @@ body{
   border-radius:12px;
   font-weight:800;
   cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  white-space:nowrap;          /* ✅ “↻ Новая” не будет переноситься */
+  min-height:44px;             /* ✅ одинаковая высота у всех кнопок */
+
 }
+
+.btn-primary{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow: 0 8px 16px rgba(0,0,0,.18);
+
+}
+
+.btn-icon{
+  width:44px;                  /* ✅ квадратные кнопки */
+  padding:0;
+  font-size:18px;
+  background:rgba(255,255,255,.04);
+  border-radius: 12px;
+
+}
+
+.ico{
+  font-size:18px;
+  line-height:1;
+}
+
 
 .stats{
   margin-top:12px;

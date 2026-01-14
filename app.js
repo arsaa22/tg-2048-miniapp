@@ -813,16 +813,39 @@ loadGlobalBest();
 loadBestFromCloud();
 
 // ==============================
-// ✅ Admin button (вынесено из share)
+// ==============================
+// ✅ Admin button (ВСЕГДА видна в Telegram)
 // ==============================
 if (adminGoBtn) {
-  // 1) по умолчанию скрываем всем
-  adminGoBtn.style.display = "none";
+  // скрываем только если открыто НЕ внутри Telegram
+  if (!tg?.initData) {
+    adminGoBtn.style.display = "none";
+  } else {
+    adminGoBtn.style.display = ""; // показываем
+  }
 
-  // 2) по клику переходим на admin.html (лучше сохранить query Telegram)
-  adminGoBtn.addEventListener("click", () => {
-    location.href = "admin.html" + location.search;
+  adminGoBtn.addEventListener("click", async () => {
+    if (!tg?.initData) {
+      alert("Админка доступна только внутри Telegram Mini App");
+      return;
+    }
+
+    try {
+      const r = await fetch(`${API_BASE}/admin/ping`, {
+        headers: { "X-Tg-Init-Data": tg.initData }
+      });
+
+      if (r.ok) {
+        location.href = "admin.html" + location.search;
+      } else {
+        tg?.showAlert?.("Нет доступа к админке (сервер вернул не OK).");
+      }
+    } catch (e) {
+      tg?.showAlert?.("Админка недоступна (ошибка сети).");
+    }
   });
+}
+
 
   // 3) проверяем доступ (только внутри Telegram есть initData)
   (async () => {

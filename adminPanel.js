@@ -235,7 +235,7 @@
   if (backBtn) {
     backBtn.addEventListener("click", () => {
       // самый простой вариант навигации назад
-      location.href = "index.html";
+      location.href = "index.html" + location.search;
     });
   }
 

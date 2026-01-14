@@ -19,17 +19,15 @@ const soundBtn = document.getElementById('soundBtn');
 const musicBtn = document.getElementById('musicBtn');
 const adminGoBtn = document.getElementById('adminGoBtn');
 
-
 // --- State ---
 const SIZE = 4;
 const STORAGE_KEY = 'tg2048_v1';
 const AUDIO_KEY = `${STORAGE_KEY}_audio`;
+
 // --- CloudStorage (личный рекорд между устройствами) ---
-const CLOUD_BEST_KEY = `${STORAGE_KEY}_best`; // ключ в Telegram CloudStorage
-let cloudBestLoaded = false;                  // прочитали ли уже best из облака
-let pendingCloudSync = false;                 // нужно ли потом досинхронизировать
-
-
+const CLOUD_BEST_KEY = `${STORAGE_KEY}_best`;
+let cloudBestLoaded = false;
+let pendingCloudSync = false;
 
 const API_BASE = 'https://mgt-welding.ru/tg2048-api';
 const API_BEST_URL = `${API_BASE}/best`;
@@ -79,7 +77,6 @@ setupBoardLayers();
 // AudioManager (SFX + BGM)
 // BGM через WebAudio — стабильно в Telegram WebView (Android)
 // =======================
-
 const AudioManager = (() => {
   const saved = JSON.parse(localStorage.getItem(AUDIO_KEY) || "{}");
 
@@ -278,7 +275,6 @@ function valuesToGrid(values) {
   return g;
 }
 
-
 // --- Tile objects ---
 function createTile(x, y, value) {
   return {
@@ -403,11 +399,10 @@ window.addEventListener('resize', () => {
 // --- Storage ---
 function saveGame() {
   const data = {
-  grid: gridToValues(),
-  score,
-  best
+    grid: gridToValues(),
+    score,
+    best
   };
-
   localStorage.setItem(`${STORAGE_KEY}_save`, JSON.stringify(data));
 }
 
@@ -428,7 +423,6 @@ function loadGame() {
     return false;
   }
 }
-
 
 function clearSave() {
   localStorage.removeItem(`${STORAGE_KEY}_save`);
@@ -461,14 +455,12 @@ function saveBest() {
   });
 }
 
-
 // --- HUD ---
 function renderHUD() {
-  if (scoreEl) scoreEl.textContent = String(score);   // ✅ теперь не упадёт
-  bestEl.textContent = String(best);
-  globalBestEl.textContent = globalBest ? String(globalBest) : '—';
+  if (scoreEl) scoreEl.textContent = String(score);
+  if (bestEl) bestEl.textContent = String(best);
+  if (globalBestEl) globalBestEl.textContent = globalBest ? String(globalBest) : '—';
 }
-
 
 function loadBestFromCloud() {
   // если не внутри Telegram — просто считаем "загружено" и выходим
@@ -500,12 +492,10 @@ function loadBestFromCloud() {
     // если мы успели поднять best до загрузки облака — досинхронизируем безопасно
     if (pendingCloudSync) {
       pendingCloudSync = false;
-      saveBest(); // saveBest сам сделает "прочитать и записать только если больше"
+      saveBest();
     }
   });
 }
-
-
 
 // --- Spawning ---
 function spawnTile(animated = true) {
@@ -570,8 +560,6 @@ function processLine(lineTiles) {
       merges.push({ into: a, from: b, newValue, oldValue: old });
 
       score += newValue;
-
-
       tg?.HapticFeedback?.impactOccurred?.('light');
 
       result.push(a);
@@ -736,7 +724,6 @@ function newGame() {
   grid = makeEmptyGrid();
   score = 0;
 
-
   tileLayerEl.innerHTML = '';
   tileEls.clear();
 
@@ -788,7 +775,6 @@ boardEl.addEventListener('pointerdown', (e) => {
   swipeStartX = e.clientX;
   swipeStartY = e.clientY;
 
-  // чтобы не терять события при быстром свайпе
   try { boardEl.setPointerCapture(e.pointerId); } catch {}
 }, { passive: true });
 
@@ -815,7 +801,6 @@ boardEl.addEventListener('pointercancel', () => {
   swipeActive = false;
 });
 
-
 // старт / загрузка
 if (!loadGame()) {
   newGame();
@@ -827,22 +812,19 @@ if (!loadGame()) {
 loadGlobalBest();
 loadBestFromCloud();
 
-
-// Share
-shareBtn.addEventListener('click', () => {
-  const tg = window.Telegram?.WebApp;
-
-  const myBest = Math.max(
-  Number(best || 0),
-  Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0)
-);
-
-// --- Admin button (видно только админу) ---
+// ==============================
+// ✅ Admin button (вынесено из share)
+// ==============================
 if (adminGoBtn) {
   // 1) по умолчанию скрываем всем
   adminGoBtn.style.display = "none";
 
-  // 2) проверяем доступ (только внутри Telegram есть initData)
+  // 2) по клику переходим на admin.html (лучше сохранить query Telegram)
+  adminGoBtn.addEventListener("click", () => {
+    location.href = "admin.html" + location.search;
+  });
+
+  // 3) проверяем доступ (только внутри Telegram есть initData)
   (async () => {
     if (!tg?.initData) return;
 
@@ -853,37 +835,34 @@ if (adminGoBtn) {
 
       // если сервер сказал OK — показываем кнопку
       adminGoBtn.style.display = r.ok ? "" : "none";
-    } catch (e) {
+    } catch {
       adminGoBtn.style.display = "none";
     }
   })();
-
-  // 3) по клику переходим на admin.html
-  adminGoBtn.addEventListener("click", () => {
-    location.href = "admin.html";
-  });
 }
 
+// --- Share ---
+shareBtn?.addEventListener('click', () => {
+  const myBest = Math.max(
+    Number(best || 0),
+    Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0)
+  );
 
   const appLink = "https://t.me/connecting_the_cube_bot?startapp=game";
 
-  // Красивый текст (переносы Telegram понимает)
   const text =
     `🎮 Cube 2048\n` +
     `🏆 Мой рекорд: ${myBest}\n` +
     `Сможешь лучше? 😄`;
 
-  // Telegram share link
   const shareUrl =
     `https://t.me/share/url?` +
     `url=${encodeURIComponent(appLink)}` +
     `&text=${encodeURIComponent(text)}`;
 
-  // ✅ Главное: открываем именно Telegram-ссылку
   if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
   else window.open(shareUrl, "_blank");
 });
-
 
 // --- Global best API ---
 async function loadGlobalBest() {
@@ -891,9 +870,9 @@ async function loadGlobalBest() {
     const r = await fetch(API_BEST_URL, { method: 'GET' });
     const data = await r.json();
     globalBest = Number(data.best || 0);
-    globalBestEl.textContent = globalBest ? String(globalBest) : '—';
-  } catch (e) {
-    globalBestEl.textContent = '—';
+    if (globalBestEl) globalBestEl.textContent = globalBest ? String(globalBest) : '—';
+  } catch {
+    if (globalBestEl) globalBestEl.textContent = '—';
   }
 }
 
@@ -927,33 +906,9 @@ async function submitScoreToServer(finalScore) {
     }
 
     tg?.showAlert?.(`Score отправлен ✅\n${originInfo}`);
-  } catch (e) {
+  } catch {
     tg?.showAlert?.(`Ошибка сети\n${originInfo}\nURL: ${API_SCORE_URL}`);
   } finally {
     globalBestSubmitting = false;
   }
 }
-
-
-
-
-
-
-(async () => {
-  const tg = window.Telegram?.WebApp;
-  const API_BASE = "https://mgt-welding.ru/tg2048-api";
-  if (!tg?.initData) {
-    tg?.showAlert?.("Нет tg.initData (ты не внутри Telegram Mini App)");
-    return;
-  }
-
-  try {
-    const r = await fetch(`${API_BASE}/admin/ping`, {
-      headers: { "X-Tg-Init-Data": tg.initData }
-    });
-    const text = await r.text().catch(() => "");
-    tg?.showAlert?.(`admin/ping status: ${r.status}\n${text.slice(0,200)}`);
-  } catch (e) {
-    tg?.showAlert?.(`admin/ping error: ${String(e)}`);
-  }
-})();

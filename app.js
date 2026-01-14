@@ -813,38 +813,32 @@ loadGlobalBest();
 loadBestFromCloud();
 
 // ==============================
-// ✅ Admin button (показываем только админу)
+// ✅ Admin button (показываем только админу, БЕЗ алертов для остальных)
+// ==============================
 if (adminGoBtn) {
+  // всегда начинаем со скрытой кнопки
   adminGoBtn.style.display = "none";
 
+  // по клику — просто открываем админку (кнопку увидит только админ)
   adminGoBtn.addEventListener("click", () => {
+    if (!tg?.initData) return;
     location.href = "admin.html" + location.search;
   });
 
   (async () => {
-    // 1) проверим, есть ли tg.initData
-    if (!tg?.initData) {
-      console.log("NO tg.initData");
-      // tg?.showAlert?.("Нет tg.initData (ты не внутри Telegram Mini App)");
-      return;
-    }
+    // если не в Telegram — ничего не делаем
+    if (!tg?.initData) return;
 
     try {
       const r = await fetch(`${API_BASE}/admin/ping`, {
         headers: { "X-Tg-Init-Data": tg.initData }
       });
 
-      const txt = await r.text().catch(()=> "");
-
-      if (!r.ok) {
-        tg?.showAlert?.(`admin/ping: ${r.status}\n${txt.slice(0,200)}`);
-        return;
-      }
-
-      // ✅ всё ок — показываем кнопку
-      adminGoBtn.style.display = "";
-    } catch (e) {
-      tg?.showAlert?.(`admin/ping error: ${String(e)}`);
+      // ✅ показываем кнопку ТОЛЬКО если админ (r.ok)
+      if (r.ok) adminGoBtn.style.display = "";
+      // ❌ если 401/403 — молча оставляем скрытой, без showAlert
+    } catch {
+      // сеть/ошибка — молча, без showAlert
     }
   })();
 }

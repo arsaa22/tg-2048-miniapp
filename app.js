@@ -813,30 +813,38 @@ loadGlobalBest();
 loadBestFromCloud();
 
 // ==============================
-// ==============================
-// ✅ Admin button (ПОКАЗЫВАЕМ ТОЛЬКО АДМИНУ)
-// ==============================
+// ✅ Admin button (показываем только админу)
 if (adminGoBtn) {
-  // СНАЧАЛА скрываем всем
   adminGoBtn.style.display = "none";
 
-  // По клику — открываем админку (но кнопка появится только у админа)
   adminGoBtn.addEventListener("click", () => {
     location.href = "admin.html" + location.search;
   });
 
-  // Проверяем доступ через сервер
   (async () => {
-    if (!tg?.initData) return;
+    // 1) проверим, есть ли tg.initData
+    if (!tg?.initData) {
+      console.log("NO tg.initData");
+      // tg?.showAlert?.("Нет tg.initData (ты не внутри Telegram Mini App)");
+      return;
+    }
 
     try {
       const r = await fetch(`${API_BASE}/admin/ping`, {
         headers: { "X-Tg-Init-Data": tg.initData }
       });
 
-      if (r.ok) adminGoBtn.style.display = ""; // показываем только админу
-    } catch {
-      // оставляем скрытой
+      const txt = await r.text().catch(()=> "");
+
+      if (!r.ok) {
+        tg?.showAlert?.(`admin/ping: ${r.status}\n${txt.slice(0,200)}`);
+        return;
+      }
+
+      // ✅ всё ок — показываем кнопку
+      adminGoBtn.style.display = "";
+    } catch (e) {
+      tg?.showAlert?.(`admin/ping error: ${String(e)}`);
     }
   })();
 }

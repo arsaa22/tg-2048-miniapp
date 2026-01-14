@@ -1,3 +1,6 @@
+console.log("APP START v13");
+alert("APP START v13");
+
 // --- Telegram init (не обязательно, но приятно) ---
 const tg = window.Telegram?.WebApp;
 if (tg) {

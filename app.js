@@ -1,6 +1,3 @@
-console.log("APP START v13");
-alert("APP START v13");
-
 // --- Telegram init (не обязательно, но приятно) ---
 const tg = window.Telegram?.WebApp;
 if (tg) {
@@ -817,40 +814,18 @@ loadBestFromCloud();
 
 // ==============================
 // ==============================
-// ✅ Admin button (ВСЕГДА видна в Telegram)
+// ✅ Admin button (ПОКАЗЫВАЕМ ТОЛЬКО АДМИНУ)
 // ==============================
 if (adminGoBtn) {
-  // скрываем только если открыто НЕ внутри Telegram
-  if (!tg?.initData) {
-    adminGoBtn.style.display = "none";
-  } else {
-    adminGoBtn.style.display = ""; // показываем
-  }
+  // СНАЧАЛА скрываем всем
+  adminGoBtn.style.display = "none";
 
-  adminGoBtn.addEventListener("click", async () => {
-    if (!tg?.initData) {
-      alert("Админка доступна только внутри Telegram Mini App");
-      return;
-    }
-
-    try {
-      const r = await fetch(`${API_BASE}/admin/ping`, {
-        headers: { "X-Tg-Init-Data": tg.initData }
-      });
-
-      if (r.ok) {
-        location.href = "admin.html" + location.search;
-      } else {
-        tg?.showAlert?.("Нет доступа к админке (сервер вернул не OK).");
-      }
-    } catch (e) {
-      tg?.showAlert?.("Админка недоступна (ошибка сети).");
-    }
+  // По клику — открываем админку (но кнопка появится только у админа)
+  adminGoBtn.addEventListener("click", () => {
+    location.href = "admin.html" + location.search;
   });
-}
 
-
-  // 3) проверяем доступ (только внутри Telegram есть initData)
+  // Проверяем доступ через сервер
   (async () => {
     if (!tg?.initData) return;
 
@@ -859,13 +834,13 @@ if (adminGoBtn) {
         headers: { "X-Tg-Init-Data": tg.initData }
       });
 
-      // если сервер сказал OK — показываем кнопку
-      adminGoBtn.style.display = r.ok ? "" : "none";
+      if (r.ok) adminGoBtn.style.display = ""; // показываем только админу
     } catch {
-      adminGoBtn.style.display = "none";
+      // оставляем скрытой
     }
   })();
 }
+
 
 // --- Share ---
 shareBtn?.addEventListener('click', () => {

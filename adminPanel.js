@@ -51,16 +51,24 @@
   }
 
   async function fetchAdmin(path) {
-    if (!tg?.initData) throw new Error("NO_INITDATA");
-    const url = `${API_BASE}${path}`;
-    const r = await fetch(url, { headers: { "X-Tg-Init-Data": tg.initData } });
+  if (!tg?.initData) throw new Error("NO_INITDATA");
 
-    if (!r.ok) {
-      const text = await r.text().catch(() => "");
-      throw new Error(`HTTP_${r.status} ${text}`);
-    }
-    return r.json();
+  // ✅ анти-кеш: добавляем уникальный параметр к каждому запросу
+  const sep = path.includes("?") ? "&" : "?";
+  const url = `${API_BASE}${path}${sep}_ts=${Date.now()}`;
+
+  const r = await fetch(url, {
+    headers: { "X-Tg-Init-Data": tg.initData },
+    cache: "no-store" // ✅ просим браузер не кешировать
+  });
+
+  if (!r.ok) {
+    const text = await r.text().catch(() => "");
+    throw new Error(`HTTP_${r.status} ${text}`);
   }
+  return r.json();
+}
+
 
   // ✅ KPI: сервер отдаёт summary.kpi и ключи total_players/new_players...
   function renderKpi(kpi) {

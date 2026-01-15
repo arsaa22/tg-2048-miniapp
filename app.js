@@ -46,6 +46,10 @@ let globalBestSubmitting = false;
 
 let best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
 
+// ✅ session metrics (для sessions: duration_ms / moves / max_tile)
+let gameStartedAt = Date.now();
+let moveCount = 0;
+
 // --- Layers (board) ---
 let cellLayerEl, tileLayerEl;
 
@@ -285,6 +289,18 @@ function createTile(x, y, value) {
     pendingValue: null,
     removeAfter: false
   };
+}
+
+// ✅ max tile (для sessions.max_tile)
+function getMaxTile() {
+  let m = 0;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const v = grid[r][c]?.value || 0;
+      if (v > m) m = v;
+    }
+  }
+  return m;
 }
 
 // --- Metrics / positioning ---
@@ -652,6 +668,9 @@ function doMove(dir) {
     return;
   }
 
+  // ✅ ход реально произошёл → считаем ход
+  moveCount += 1;
+
   AudioManager.playSfx(mergesAll.length ? "merge" : "move", mergesAll.length ? 0.8 : 0.4);
 
   grid = newGrid;
@@ -692,7 +711,17 @@ function doMove(dir) {
       AudioManager.playSfx("gameover", 0.9);
       AudioManager.stopMusic();
 
-      submitScoreToServer(score).finally(() => loadGlobalBest());
+      const durationMs = Date.now() - gameStartedAt;
+      const maxTile = getMaxTile();
+
+      // ✅ отправляем на сервер score + метрики сессии
+      submitScoreToServer({
+        scoreFinal: score,
+        durationMs,
+        moves: moveCount,
+        bestAtEnd: best,
+        maxTile
+      }).finally(() => loadGlobalBest());
 
       if (tg?.showPopup) {
         tg.showPopup({
@@ -723,6 +752,10 @@ function newGame() {
   clearSave();
   grid = makeEmptyGrid();
   score = 0;
+
+  // ✅ reset session metrics
+  gameStartedAt = Date.now();
+  moveCount = 0;
 
   tileLayerEl.innerHTML = '';
   tileEls.clear();
@@ -805,6 +838,10 @@ boardEl.addEventListener('pointercancel', () => {
 if (!loadGame()) {
   newGame();
 } else {
+  // если загрузили сохранение — метрики сессии начинаем заново
+  gameStartedAt = Date.now();
+  moveCount = 0;
+
   rebuildTilesDOM(true);
   renderHUD();
 }
@@ -879,38 +916,32 @@ async function loadGlobalBest() {
   }
 }
 
-async function submitScoreToServer(finalScore) {
-  if (!Number.isFinite(finalScore) || finalScore < 0) return;
+// ✅ submit score + session metrics
+async function submitScoreToServer(payload) {
+  const { scoreFinal, durationMs, moves, bestAtEnd, maxTile } = payload || {};
+
+  if (!Number.isFinite(scoreFinal) || scoreFinal < 0) return;
   if (globalBestSubmitting) return;
 
-  const originInfo = `origin: ${location.origin}`;
-
-  if (!tg?.initData) {
-    tg?.showAlert?.(`Нет tg.initData\n${originInfo}`);
-    return;
-  }
+  if (!tg?.initData) return;
 
   globalBestSubmitting = true;
 
   try {
-    const r = await fetch(API_SCORE_URL, {
+    await fetch(API_SCORE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ score: finalScore, initData: tg.initData })
+      body: JSON.stringify({
+        score: scoreFinal,
+        initData: tg.initData,
+        duration_ms: Number.isFinite(durationMs) ? Math.max(0, Math.floor(durationMs)) : null,
+        moves: Number.isFinite(moves) ? Math.max(0, Math.floor(moves)) : null,
+        best_at_end: Number.isFinite(bestAtEnd) ? Math.max(0, Math.floor(bestAtEnd)) : null,
+        max_tile: Number.isFinite(maxTile) ? Math.max(0, Math.floor(maxTile)) : null,
+      })
     });
-
-    const text = await r.text().catch(() => "");
-
-    if (!r.ok) {
-      tg?.showAlert?.(
-        `Score НЕ принят: ${r.status}\n${originInfo}\nURL: ${API_SCORE_URL}\n${text.slice(0, 200)}`
-      );
-      return;
-    }
-
-    tg?.showAlert?.(`Score отправлен ✅\n${originInfo}`);
   } catch {
-    tg?.showAlert?.(`Ошибка сети\n${originInfo}\nURL: ${API_SCORE_URL}`);
+    // молча
   } finally {
     globalBestSubmitting = false;
   }

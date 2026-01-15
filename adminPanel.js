@@ -54,6 +54,7 @@
     if (!tg?.initData) throw new Error("NO_INITDATA");
     const url = `${API_BASE}${path}`;
     const r = await fetch(url, { headers: { "X-Tg-Init-Data": tg.initData } });
+
     if (!r.ok) {
       const text = await r.text().catch(() => "");
       throw new Error(`HTTP_${r.status} ${text}`);
@@ -61,35 +62,36 @@
     return r.json();
   }
 
-  function renderKpi(summary) {
+  // ✅ KPI: сервер отдаёт summary.kpi и ключи total_players/new_players...
+  function renderKpi(kpi) {
     if (!kpiEl) return;
-
     const cards = [
-      ["Всего игроков", summary.total_users],
-      ["Новые", summary.new_users],
-      ["Активные", summary.active_users],
-      ["Игр", summary.games_played],
-      ["Средн. score", summary.avg_score],
-      ["Средн. длит. (с)", summary.avg_duration_sec],
-      ["Средн. ходы", summary.avg_moves],
-      ["Global Best", summary.global_best],
+      ["Всего игроков", kpi?.total_players],
+      ["Новые", kpi?.new_players],
+      ["Активные", kpi?.active_players],
+      ["Игр", kpi?.games],
+      ["Средн. score", kpi?.avg_score],
+      ["Средн. длит. (с)", kpi?.avg_duration_sec],
+      ["Средн. ходы", kpi?.avg_moves],
+      ["Global Best", kpi?.global_best],
     ];
 
     kpiEl.innerHTML = cards.map(([label, val]) => `
       <div class="kpiCard">
         <div class="kpiLabel">${label}</div>
-        <div class="kpiValue">${val ?? "—"}</div>
+        <div class="kpiValue">${(val ?? "—")}</div>
       </div>
     `).join("");
   }
 
+  // ✅ Daily: сервер отдаёт daily.days
   function drawDaily(rows) {
     const canvas = document.getElementById("chartDaily");
     if (!canvas) return;
 
-    const labels = rows.map(r => r.day);
-    const dau = rows.map(r => r.dau);
-    const games = rows.map(r => r.games);
+    const labels = (rows || []).map(r => r.day);
+    const dau = (rows || []).map(r => Number(r.dau) || 0);
+    const games = (rows || []).map(r => Number(r.games) || 0);
 
     const ctx = canvas.getContext("2d");
     if (chartDaily) chartDaily.destroy();
@@ -110,7 +112,16 @@
     });
   }
 
-  function drawRetention(ret1, ret7, ret30) {
+  // ✅ Retention: сервер отдаёт retention.data = массив когорт
+  // Мы считаем общую retention% по диапазону дат (взвешенно по размеру когорт)
+  function retentionPct(data) {
+    const rows = data || [];
+    const cohort = rows.reduce((s, r) => s + (Number(r.cohort_size) || 0), 0);
+    const retained = rows.reduce((s, r) => s + (Number(r.retained) || 0), 0);
+    return cohort > 0 ? Math.round((retained / cohort) * 100) : 0;
+  }
+
+  function drawRetention(p1, p7, p30) {
     const canvas = document.getElementById("chartRetention");
     if (!canvas) return;
 
@@ -123,19 +134,23 @@
         labels: ["D+1", "D+7", "D+30"],
         datasets: [{
           label: "Retention %",
-          data: [ret1.retention_pct, ret7.retention_pct, ret30.retention_pct]
+          data: [p1, p7, p30]
         }]
       },
       options: {
         responsive: true,
-        plugins: { legend: { display: true } }
+        plugins: { legend: { display: true } },
+        scales: { y: { min: 0, max: 100 } }
       }
     });
   }
 
+  // ✅ Top: сервер отдаёт top.items = [{ user, best, updated_at }]
   function renderTop(top) {
     const root = document.getElementById("admTop");
     if (!root) return;
+
+    const items = top?.items || [];
 
     root.innerHTML = `
       <div class="adminTableWrap">
@@ -149,12 +164,12 @@
             </tr>
           </thead>
           <tbody>
-            ${(top.items || []).map(r => `
+            ${items.map((r, i) => `
               <tr>
-                <td>${r.rank}</td>
-                <td>${r.username ? "@"+r.username : (r.first_name || r.user_id)}</td>
-                <td>${r.best_score}</td>
-                <td>${r.updated_at}</td>
+                <td>${i + 1}</td>
+                <td>${r.user ?? "—"}</td>
+                <td>${r.best ?? "—"}</td>
+                <td>${r.updated_at ?? "—"}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -163,9 +178,12 @@
     `;
   }
 
+  // ✅ Sessions: сервер отдаёт sessions.items = [{ when, user, score, moves?, duration_ms? }]
   function renderSessions(sessions) {
     const root = document.getElementById("admSessions");
     if (!root) return;
+
+    const items = sessions?.items || [];
 
     root.innerHTML = `
       <div class="adminTableWrap">
@@ -180,13 +198,13 @@
             </tr>
           </thead>
           <tbody>
-            ${(sessions.rows || []).map(s => `
+            ${items.map(s => `
               <tr>
-                <td>${s.ended_at}</td>
-                <td>${s.username ? "@"+s.username : (s.first_name || s.user_id)}</td>
-                <td>${s.score_final}</td>
-                <td>${s.moves}</td>
-                <td>${Math.round((s.duration_ms||0)/1000)}</td>
+                <td>${s.when ?? "—"}</td>
+                <td>${s.user ?? "—"}</td>
+                <td>${s.score ?? "—"}</td>
+                <td>${(s.moves ?? "—")}</td>
+                <td>${(s.duration_ms != null ? Math.round(Number(s.duration_ms) / 1000) : "—")}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -214,15 +232,19 @@
     await ensureChartsLib();
 
     const summary = await fetchAdmin(`/admin/summary?from=${from}&to=${to}`);
-    renderKpi(summary);
+    renderKpi(summary.kpi);
 
     const daily = await fetchAdmin(`/admin/daily?from=${from}&to=${to}`);
-    drawDaily(daily.rows || []);
+    drawDaily(daily.days || []);
 
     const ret1 = await fetchAdmin(`/admin/retention?from=${from}&to=${to}&window=1`);
     const ret7 = await fetchAdmin(`/admin/retention?from=${from}&to=${to}&window=7`);
     const ret30 = await fetchAdmin(`/admin/retention?from=${from}&to=${to}&window=30`);
-    drawRetention(ret1, ret7, ret30);
+    drawRetention(
+      retentionPct(ret1.data),
+      retentionPct(ret7.data),
+      retentionPct(ret30.data)
+    );
 
     const top = await fetchAdmin(`/admin/top?limit=20`);
     renderTop(top);
@@ -234,7 +256,6 @@
   // Back button
   if (backBtn) {
     backBtn.addEventListener("click", () => {
-      // самый простой вариант навигации назад
       location.href = "index.html" + location.search;
     });
   }

@@ -49,6 +49,7 @@ let best = Number(localStorage.getItem(`${STORAGE_KEY}_best`) || 0);
 // ✅ session metrics (для sessions: duration_ms / moves / max_tile)
 let gameStartedAt = Date.now();
 let moveCount = 0;
+let sessionSent = false;
 
 // --- Layers (board) ---
 let cellLayerEl, tileLayerEl;
@@ -715,13 +716,7 @@ function doMove(dir) {
       const maxTile = getMaxTile();
 
       // ✅ отправляем на сервер score + метрики сессии
-      submitScoreToServer({
-        scoreFinal: score,
-        durationMs,
-        moves: moveCount,
-        bestAtEnd: best,
-        maxTile
-      }).finally(() => loadGlobalBest());
+      finalizeSession("gameover").finally(() => loadGlobalBest());
 
       if (tg?.showPopup) {
         tg.showPopup({
@@ -756,6 +751,8 @@ function newGame() {
   // ✅ reset session metrics
   gameStartedAt = Date.now();
   moveCount = 0;
+  sessionSent = false;
+
 
   tileLayerEl.innerHTML = '';
   tileEls.clear();
@@ -784,9 +781,14 @@ musicBtn?.addEventListener("click", () => {
 restartBtn?.addEventListener('click', () => {
   AudioManager.unlockFromGesture();
   AudioManager.playSfx("click", 0.7);
-  AudioManager.startMusic();
-  newGame();
+
+  finalizeSession("restart").finally(() => {
+    AudioManager.startMusic();
+    newGame();
+    loadGlobalBest();
+  });
 });
+
 
 // Keyboard controls
 window.addEventListener('keydown', (e) => {
@@ -834,6 +836,13 @@ boardEl.addEventListener('pointercancel', () => {
   swipeActive = false;
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    finalizeSession("hidden");
+  }
+});
+
+
 // старт / загрузка
 if (!loadGame()) {
   newGame();
@@ -841,6 +850,7 @@ if (!loadGame()) {
   // если загрузили сохранение — метрики сессии начинаем заново
   gameStartedAt = Date.now();
   moveCount = 0;
+  sessionSent = false;
 
   rebuildTilesDOM(true);
   renderHUD();
@@ -916,9 +926,38 @@ async function loadGlobalBest() {
   }
 }
 
+function shouldSendSession() {
+  return (moveCount > 0 || score > 0);
+}
+
+function finalizeSession(reason = "manual_end") {
+  if (sessionSent) return Promise.resolve(false);
+  if (!shouldSendSession()) return Promise.resolve(false);
+  if (!tg?.initData) return Promise.resolve(false);
+
+  sessionSent = true;
+
+  const endedAtIso = new Date().toISOString();
+  const startedAtIso = new Date(gameStartedAt).toISOString();
+  const durationMs = Date.now() - gameStartedAt;
+  const maxTile = getMaxTile();
+
+  return submitScoreToServer({
+    scoreFinal: score,
+    durationMs,
+    moves: moveCount,
+    bestAtEnd: best,
+    maxTile,
+    startedAt: startedAtIso,
+    endedAt: endedAtIso,
+    reason
+  }).then(() => true).catch(() => false);
+}
+
+
 // ✅ submit score + session metrics
 async function submitScoreToServer(payload) {
-  const { scoreFinal, durationMs, moves, bestAtEnd, maxTile } = payload || {};
+  const { scoreFinal, durationMs, moves, bestAtEnd, maxTile, startedAt, endedAt } = payload || {};
 
   if (!Number.isFinite(scoreFinal) || scoreFinal < 0) return;
   if (globalBestSubmitting) return;
@@ -938,6 +977,9 @@ async function submitScoreToServer(payload) {
         moves: Number.isFinite(moves) ? Math.max(0, Math.floor(moves)) : null,
         best_at_end: Number.isFinite(bestAtEnd) ? Math.max(0, Math.floor(bestAtEnd)) : null,
         max_tile: Number.isFinite(maxTile) ? Math.max(0, Math.floor(maxTile)) : null,
+        started_at: startedAt || null,
+        ended_at: endedAt || null,
+
       })
     });
   } catch {

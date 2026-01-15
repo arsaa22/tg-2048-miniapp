@@ -197,9 +197,17 @@ const AudioManager = (() => {
   }
 
   function syncButtons() {
-    if (soundBtn) soundBtn.textContent = soundOn ? "🔊" : "🔇";
-    if (musicBtn) musicBtn.textContent = musicOn ? "🎵" : "🚫🎵";
+  if (soundBtn) {
+    soundBtn.textContent = "🔊";
+    soundBtn.classList.toggle("off", !soundOn);
   }
+
+  if (musicBtn) {
+    musicBtn.textContent = "🎵";
+    musicBtn.classList.toggle("off", !musicOn);
+  }
+}
+
 
   function unlockFromGesture() {
     ensureAudioCtx();

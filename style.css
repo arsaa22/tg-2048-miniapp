@@ -341,3 +341,18 @@ html.admin, body.admin{
   color:var(--muted);
   font-weight:700;
 }
+
+.btn.icon{ position:relative; }
+
+.btn.icon.off::after{
+  content:"";
+  position:absolute;
+  left:22%;
+  top:50%;
+  width:56%;
+  height:2px;
+  background: rgba(255,70,70,.95);
+  transform: rotate(-45deg);
+  border-radius: 2px;
+  pointer-events:none;
+}

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from backend.database import get_global_best, init_db, save_score
@@ -6,6 +7,19 @@ from backend.telegram_auth import TelegramAuthError, validate_init_data
 
 
 app = FastAPI(title="Cube 2048 API")
+
+LOCAL_FRONTEND_ORIGINS = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=LOCAL_FRONTEND_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Tg-Init-Data"],
+)
 
 
 class ScorePayload(BaseModel):

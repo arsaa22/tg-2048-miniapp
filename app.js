@@ -29,7 +29,13 @@ const CLOUD_BEST_KEY = `${STORAGE_KEY}_best`;
 let cloudBestLoaded = false;
 let pendingCloudSync = false;
 
-const API_BASE = 'https://mgt-welding.ru/tg2048-api';
+const IS_LOCAL =
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname === 'localhost';
+
+const API_BASE = IS_LOCAL
+  ? 'http://127.0.0.1:8000'
+  : 'https://mgt-welding.ru/tg2048-api';
 const API_BEST_URL = `${API_BASE}/best`;
 const API_SCORE_URL = `${API_BASE}/score`;
 

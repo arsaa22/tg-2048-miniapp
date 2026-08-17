@@ -3,3 +3,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+.venv/
+__pycache__/
+*.pyc
+backend/data/

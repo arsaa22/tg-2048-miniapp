@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.database import get_global_best, init_db, save_score
+from backend.telegram_auth import TelegramAuthError, validate_init_data
 
 
 app = FastAPI(title="Cube 2048 API")
@@ -9,7 +10,7 @@ app = FastAPI(title="Cube 2048 API")
 
 class ScorePayload(BaseModel):
     score: int = Field(ge=0)
-    initData: str | None = None
+    initData: str
     duration_ms: int | None = Field(default=None, ge=0)
     moves: int | None = Field(default=None, ge=0)
     best_at_end: int | None = Field(default=None, ge=0)
@@ -35,12 +36,18 @@ def best():
 
 @app.post("/score")
 def submit_score(payload: ScorePayload):
-    # ВРЕМЕННО: локальный тестовый пользователь.
-    # Позже telegram_id будем получать из проверенного Telegram initData.
-    telegram_id = 0
+    try:
+        telegram_user = validate_init_data(payload.initData)
+    except TelegramAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    telegram_id = int(telegram_user["id"])
 
     save_score(
         telegram_id=telegram_id,
+        username=telegram_user.get("username"),
+        first_name=telegram_user.get("first_name"),
+        last_name=telegram_user.get("last_name"),
         score=payload.score,
         duration_ms=payload.duration_ms,
         moves=payload.moves,

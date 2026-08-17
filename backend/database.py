@@ -57,6 +57,9 @@ def get_global_best():
 def save_score(
     telegram_id: int,
     score: int,
+    username: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
     duration_ms: int | None = None,
     moves: int | None = None,
     best_at_end: int | None = None,
@@ -69,16 +72,28 @@ def save_score(
             """
             INSERT INTO players (
                 telegram_id,
+                username,
+                first_name,
+                last_name,
                 best_score,
                 created_at,
                 last_seen_at
             )
-            VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT(telegram_id) DO UPDATE SET
+                username = COALESCE(excluded.username, players.username),
+                first_name = COALESCE(excluded.first_name, players.first_name),
+                last_name = COALESCE(excluded.last_name, players.last_name),
                 best_score = MAX(players.best_score, excluded.best_score),
                 last_seen_at = CURRENT_TIMESTAMP
             """,
-            (telegram_id, score),
+            (
+                telegram_id,
+                username,
+                first_name,
+                last_name,
+                score,
+            ),
         )
 
         connection.execute(
